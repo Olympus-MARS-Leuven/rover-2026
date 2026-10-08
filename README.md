@@ -10,7 +10,7 @@ all code for the rover from the schoolyear starting in 2026
 ### Part 1: set up a ssh key and connect it to your github account
 If you run "ls ~/.ssh" and see id_ed25519 and id_ed25519.pub, you can skip to step 4 (or if you have already added a key to github skip this part entirely)
 #### Steps:
-1. open terminal (on Mac/Linux) or Git Bash (on Windows)
+1. open terminal on Mac/Linux or Git Bash on Windows (you might have to install it, just search “git download windows”)
 2. run this command (with your email): ssh-keygen -t ed25519 -C "your-email@example.com"
 3. just press enter three times for an empty passphrase
 4. run this on Mac: pbcopy < ~/.ssh/id_ed25519.pub\
