@@ -68,3 +68,66 @@ once you are done with implementing whatever you wanted to implement on a branch
 ### Merging:
 **never merge into main directly, open a pull request instead. this part is just extra knowledge.** \
 once you are done with implementing whatever you wanted to implement on a branch, you can use "git merge" to bring those changes to the main branch. in order to do this navigate to the branch you want to merge into (this is normally "main") using "git checkout branch_name". here, run "git pull" to get the newest version. then, merge into that branch using "git merge other_branch_name" (other_branch_name is the branch you are merging into the main branch e.g. "drone/bug/propeller-speed-fix"). this should work without issues, if you get a merge conflict, ask AI. lastly, run "git push" to push everything to the repo.
+
+
+
+
+
+Using VS Code instead of the terminal:
+
+everything above can also be done with buttons in VS Code's built in git manager. the rules stay the same (pull before working, use branches with the naming convention, never merge into main directly), only how you do it changes. you still need to do Part 1 (ssh key + git config) first.
+the git manager is the "Source Control" tab on the left sidebar (the icon that looks like a branch), or press Ctrl+Shift+G (Cmd+Shift+G on Mac).
+
+Cloning:
+
+    accept the invitation to the Olympus-MARS-Leuven organization (check your email)
+    copy the SSH link the same way as in Part 2
+    in VS Code, press Ctrl+Shift+P (Cmd+Shift+P on Mac), type "Git: Clone" and press enter
+    paste the SSH link and press enter
+    choose the folder in which you want to place the repo
+    click "Open" when VS Code asks if you want to open the cloned repo
+
+Committing:
+
+    open the Source Control tab, all the files you changed are listed under "Changes"
+    click the "+" next to "Changes" to stage all files (this is the same as "git add ."), or the "+" next to a single file to only stage that one
+    type a message about what you changed in the message box at the top
+    click "Commit"
+    (if you click "Commit" without staging anything, VS Code asks if it should stage all your changes and commit them, you can just click "Yes")
+
+Pulling:
+
+    in the Source Control tab, click the "..." at the top -> Pull
+    always do this before working on code
+
+Pushing:
+
+    always pull first (see above)
+    after committing, click "..." -> Push
+    or just click the "Sync Changes" button that shows up after committing, this pulls and then pushes in one go
+    on a new branch the button says "Publish Branch" instead, just click it (this replaces the "git push --set-upstream origin..." command)
+
+Merge conflicts:
+
+    conflicting files show up under "Merge Changes" in the Source Control tab
+    open the file, above every conflict you can click "Accept Current Change", "Accept Incoming Change" or "Accept Both Changes" (definitely ask AI for help if you're not sure which one)
+    once every conflict in a file is fixed, stage it with "+" and commit like normal
+
+Branches:
+
+    the name of your current branch is shown in the bottom left corner of VS Code
+    click it to get a list of all branches, pick one to switch to it (this is the same as "git checkout branch_name")
+    to create a new branch, click it and choose "+ Create new branch...", then type the name using the naming convention (e.g. drone/bug/propeller-speed-fix)
+    the new branch starts from the branch you are currently on, so switch to main and pull first
+    same as before: commit your changes before switching branches
+
+Pull Requests:
+
+    commit and push/publish your branch as usual (see above)
+    then make the pull request on the github website, exactly like in the Pull Requests section above
+    afterwards, switch to main using the branch name in the bottom left, pull, and delete your old branch with "..." -> Branch -> Delete Branch...
+
+Merging:
+
+    same rule: never merge into main directly, open a pull request instead
+    for extra knowledge: switch to the branch you want to merge into, pull, then click "..." -> Branch -> Merge..., pick the other branch, then push
