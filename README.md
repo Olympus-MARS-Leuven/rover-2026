@@ -4,42 +4,6 @@ all code for the rover from the schoolyear starting in 2026
 
 # HOW TO WORK ON THIS REPO:
 
-## Initial Cloning:
-
-### Part 1: set up a ssh key and connect it to your github account
-
-If you run "ls ~/.ssh" and see id_ed25519 and id_ed25519.pub, you can skip to step 4 (or if you have already added a key to github skip this part entirely)
-
-#### Steps:
-
-1. open terminal on Mac/Linux or Git Bash on Windows (you might have to install it, just search “git download windows”)
-2. run this command (with your email): ssh-keygen -t ed25519 -C "your-email@example.com"
-3. just press enter three times for an empty passphrase
-4. run this on Mac: pbcopy < ~/.ssh/id_ed25519.pub\
-   or this on Windows: clip < ~/.ssh/id_ed25519.pub\
-   or this on Linux (and then copy the full printed key): cat ~/.ssh/id_ed25519.pub
-5. go to github.com -> settings -> SSH and GPG keys -> New SSH key -> paste the key in "key" box and give it whatever name you want -> click Add SSH Key
-6. run this command: ssh -T git@github.com\
-   it should return "Hi <username>! You've successfully authenticated, but GitHub does not provide shell access."\
-   (you might get a prompt to type "yes" first)
-7. run these two commands with Your Name and your-email@example.com replaced:\
-   git config --global user.name "Your Name"\
-   git config --global user.email "your-email@example.com"
-
-### Part 2: clone the repo
-
-#### Steps:
-
-0. accept the invitation to the Olympus-MARS-Leuven organization (check your email)
-1. use Terminal/Git Bash to navigate to the folder in which you want to place the repo\
-   you can use the "cd path/to/folder" command for this
-2. go to https://github.com/Olympus-MARS-Leuven/rover-2026 and click on the green "Code" button
-3. go to SSH and copy the SSH link
-4. run "git clone [SSH link]"
-5. Done!!!
-
-## Making Changes:
-
 ### Committing:
 
 Committing saves changes on your machine (do this very often)
