@@ -11,25 +11,7 @@ import RPi.GPIO as GPIO
 # motor_EN_A: Pin7  |  motor_EN_B: Pin11
 # motor_A:  Pin8,Pin10    |  motor_B: Pin13,Pin12
 
-Motor_A_EN    = 4
-Motor_B_EN    = 17
 
-Motor_A_Pin1  = 14
-Motor_A_Pin2  = 15
-Motor_B_Pin1  = 27
-Motor_B_Pin2  = 18
-
-Dir_forward   = 0
-Dir_backward  = 1
-
-left_forward  = 0
-left_backward = 1
-
-right_forward = 0
-right_backward= 1
-
-pwn_A = 0
-pwm_B = 0
 
 def motorStop():#Motor stops
 	GPIO.output(Motor_A_Pin1, GPIO.LOW)
