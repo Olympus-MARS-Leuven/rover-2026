@@ -9,15 +9,7 @@ import time
 import RPi.GPIO as GPIO
 
 # motor_EN_A: Pin7  |  motor_EN_B: Pin11
-# motor_A:  Pin8,Pin10    |  motor_B: Pin13,Pin12
-
-
-
-def motorStop():#Motor stops
-	GPIO.output(Motor_A_Pin1, GPIO.LOW)
-	GPIO.output(Motor_A_Pin2, GPIO.LOW)
-	GPIO.output(Motor_B_Pin1, GPIO.LOW)
-	GPIO.output(Motor_B_Pin2, GPIO.LOW)
+# motor_A:  Pin8,Pin10    |  motor_B: Pin13,Pin12n2, GPIO.LOW)
 	GPIO.output(Motor_A_EN, GPIO.LOW)
 	GPIO.output(Motor_B_EN, GPIO.LOW)
 
