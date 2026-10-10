@@ -63,7 +63,7 @@ once you are done with implementing whatever you wanted to implement on a branch
 3. write a short description of what you changed, add a reviewer on the right and click "Create pull request"
 4. if the reviewer asks for changes, just commit and push to the same branch, the pull request updates automatically
 5. once it's approved, click "Merge pull request"
-6. afterwards, run "git checkout main" and "git pull" to get the merged code, and "git branch -d branch_name" to delete your old branch
+6. afterwards, run "git checkout main" and "git pull" to get the merged code, and "git branch -d branch_name" to delete your old branch (the branch will be deleted automatically from the repo but it will still exist locally on your computer)
 
 ### Merging:
 **never merge into main directly, open a pull request instead. this part is just extra knowledge.** \
