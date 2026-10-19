@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robotino-token" content="__TOKEN__">
+  <title>Robotino · Track control</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background:#101922; color:#edf3f8; }
+    body { margin:0; padding:28px; } main { max-width:680px; margin:auto; }
+    .brand { color:#8bacbd; letter-spacing:.15em; font-size:.8rem; }
+    h1 { font-size:2.3rem; margin:12px 0; } p { line-height:1.6; }
+    .mode { display:inline-block; background:#203644; color:#aee6ff; padding:8px 12px; border-radius:8px; }
+    .panel { background:#1a2834; border:1px solid #344c5b; border-radius:16px; padding:24px; margin:22px 0; }
+    #status { font-size:1.2rem; font-weight:600; } #motion { font-size:1.5rem; text-transform:uppercase; }
+    .tracks { display:flex; gap:20px; color:#bacbd5; }
+    .speed { margin:22px 0; } .speed label { display:block; margin-bottom:10px; font-weight:600; }
+    #speed { width:100%; accent-color:#aee6ff; cursor:pointer; }
+    #speed:focus-visible { outline:3px solid white; outline-offset:4px; }
+    .speed-scale { display:flex; justify-content:space-between; }
+    button { font:inherit; padding:14px 20px; border:0; border-radius:9px; cursor:pointer; font-weight:700; }
+    button:focus-visible { outline:3px solid white; outline-offset:4px; }
+    #connect { background:#aee6ff; color:#102332; } #connect:disabled { opacity:.5; cursor:default; }
+    #stop { background:#ed626b; color:#190a0d; margin-left:12px; }
+    kbd { background:#304858; border:1px solid #587181; border-radius:4px; padding:2px 7px; }
+    table { width:100%; border-collapse:collapse; } td { padding:10px 0; border-bottom:1px solid #344c5b; }
+    .muted { color:#a3b8c6; font-size:.9rem; } #error { color:#ffb1b7; min-height:1.5em; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand">OLYMPUS MARS / ROBOTINO</div>
+  <h1>Track control</h1>
+  <div class="mode">__MODE__</div>
+  <p>Connect, then hold <kbd>Shift</kbd> and one direction key. Release either to stop.</p>
+  <section class="panel">
+    <div id="status" role="status" aria-live="polite">Disconnected</div>
+    <p id="motion">Stopped</p>
+    <div class="tracks"><span>Left: <b id="left">0%</b></span><span>Right: <b id="right">0%</b></span></div>
+    <div class="speed">
+      <label for="speed">Speed / motor duty: <output id="speed-value" for="speed">__DEFAULT_SPEED__%</output></label>
+      <input id="speed" type="range" min="0" max="__MAX_SPEED__" step="5" value="__DEFAULT_SPEED__" aria-describedby="speed-help">
+      <div class="speed-scale muted"><span>0% · stopped</span><span>__MAX_SPEED__% · full duty</span></div>
+      <p id="speed-help" class="muted">Changes apply on the next command. Duty is motor power, not measured track speed. When the slider has focus, arrow keys adjust it; click elsewhere to drive with arrows.</p>
+    </div>
+    <p><button id="connect">Connect controls</button><button id="stop">STOP · Esc</button></p>
+    <div id="error" role="alert"></div>
+  </section>
+  <table aria-label="Keyboard controls">
+    <tr><td>Forward / backward</td><td>↑ / ↓ or Z / S</td></tr>
+    <tr><td>Turn left / right</td><td>← / → or Q / D</td></tr>
+    <tr><td>Hold to drive</td><td>Shift + one direction</td></tr>
+    <tr><td>Disconnect and stop</td><td>Esc, Space, or STOP</td></tr>
+  </table>
+  <p class="muted">Starts at __DEFAULT_SPEED__% duty on page load. Keep the tracks raised for the first test. Switching tabs disconnects control. After a connection fault, reconnect manually. A lost link stops motor power after about __TIMEOUT__ seconds.</p>
+  <p class="muted">STOP is a software command. Keep the robot’s power switch accessible. Arm and camera controls will be added after the track tests.</p>
+</main>
+<script src="/controls.js"></script>
+</body>
+</html>
