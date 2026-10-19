@@ -5,6 +5,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+function successful(data, challenge = 'next') {
+  const homes = {camera: 100, lower: 0, upper: 53, wrist: 0, gripper: 0};
+  return {ok: true, json: async () => ({session: 'session', challenge,
+    motion: data.motion || 'stop', left: data.deadman ? data.speed : 0, right: data.deadman ? data.speed : 0,
+    arm: {enabled: data.arm?.enabled || false, hardware: false,
+      joints: Object.fromEntries(Object.entries(homes).map(([key, home]) => [key, {
+        percent: home, target: data.arm?.targets?.[key] ?? home, active: false,
+      }]))},
+  })};
+}
+
 function harness(fetchOverride) {
   const elements = {};
   const windowEvents = {};
@@ -17,7 +28,7 @@ function harness(fetchOverride) {
     hasFocus: () => true,
     querySelector: () => ({content: 'test-token'}),
     getElementById: id => elements[id] ||= {
-      textContent: '', value: id === 'speed' ? '50' : '', disabled: false, events: {},
+      textContent: '', value: id === 'speed' ? '50' : id === 'arm-speed' ? '100' : '', disabled: false, events: {},
       addEventListener(type, fn) { this.events[type] = fn; },
     },
     addEventListener: (type, fn) => { documentEvents[type] = fn; },
@@ -32,8 +43,7 @@ function harness(fetchOverride) {
       const data = JSON.parse(options.body);
       calls.push({url, data});
       if (fetchOverride) return fetchOverride(url, data, options);
-      return {ok: true, json: async () => ({session: 'session', challenge: `challenge-${calls.length}`,
-        motion: data.motion || 'stop', left: data.deadman ? data.speed : 0, right: data.deadman ? data.speed : 0})};
+      return successful(data, `challenge-${calls.length}`);
     },
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../web/controls.js'), 'utf8'), context);
@@ -193,4 +203,87 @@ test('STOP cannot be undone by a late drive reply', async () => {
   assert.equal(h.elements.status.textContent, 'Disconnected');
   assert.equal(h.elements.motion.textContent, 'Stop requested');
   assert.ok(![...h.timers.values()].some(t => t.delay === 80));
+});
+
+test('arm starts disabled and enabling it sends no joint targets', async () => {
+  const h = harness(); await h.connect();
+  assert.equal(h.lastDrive().arm.enabled, false);
+  assert.equal(h.elements['joint-camera'].disabled, true);
+  h.elements['arm-toggle'].events.click(); await h.tick();
+  assert.equal(h.lastDrive().arm.enabled, true);
+  assert.deepEqual(h.lastDrive().arm.targets, {});
+  assert.deepEqual(h.lastDrive().arm.jog, {});
+  assert.equal(h.elements['joint-camera'].disabled, false);
+});
+
+test('all five joint key pairs jog only with Shift and key release ends jogging', async () => {
+  const h = harness(); await h.connect(); h.elements['arm-toggle'].events.click();
+  for (const [key, joint, direction] of [
+    ['i', 'camera', -1], ['k', 'camera', 1], ['r', 'lower', 1], ['f', 'lower', -1],
+    ['t', 'upper', -1], ['g', 'upper', 1], ['j', 'wrist', -1], ['l', 'wrist', 1],
+    ['o', 'gripper', -1], ['p', 'gripper', 1],
+  ]) {
+    h.key('keydown', key); await h.tick();
+    assert.deepEqual(h.lastDrive().arm.jog, {});
+    h.key('keydown', 'Shift'); await h.tick();
+    assert.deepEqual(h.lastDrive().arm.jog, {[joint]: direction});
+    assert.equal(h.lastDrive().motion, 'stop');
+    h.key('keyup', 'Shift', {shiftKey: false}); h.key('keyup', key); await h.tick();
+    assert.deepEqual(h.lastDrive().arm.jog, {});
+    assert.equal(h.lastDrive().arm.enabled, true);
+  }
+});
+
+test('joint slider sends one latest target without Shift and arm speed is adjustable', async () => {
+  const h = harness(); await h.connect(); h.elements['arm-toggle'].events.click();
+  const slider = h.elements['joint-gripper']; slider.value = '75'; slider.events.input();
+  h.elements['arm-speed'].value = '200'; h.elements['arm-speed'].events.input();
+  await h.tick();
+  assert.deepEqual(h.lastDrive().arm.targets, {gripper: 75});
+  assert.equal(h.lastDrive().arm.speed, 200);
+  assert.equal(h.elements['arm-speed-value'].textContent, '200%');
+  await h.tick();
+  assert.deepEqual(h.lastDrive().arm.targets, {});
+});
+
+test('Hold cancels pending targets and jogging; release and reconnect do not resume the arm', async () => {
+  const h = harness(); await h.connect(); h.elements['arm-toggle'].events.click();
+  h.key('keydown', 'Shift'); h.key('keydown', 'r');
+  h.elements['arm-hold'].events.click(); await h.tick();
+  assert.equal(h.lastDrive().arm.hold, true);
+  assert.deepEqual(h.lastDrive().arm.jog, {});
+  await h.tick(); assert.equal(h.lastDrive().arm.hold, false);
+  h.elements['arm-toggle'].events.click(); await h.tick();
+  assert.equal(h.lastDrive().arm.enabled, false);
+  h.elements.stop.events.click(); await h.flush();
+  await h.connect();
+  assert.equal(h.lastDrive().arm.enabled, false);
+  assert.deepEqual(h.lastDrive().arm.targets, {});
+});
+
+test('arm sliders keep native arrows without requesting track movement', async () => {
+  const h = harness(); await h.connect(); h.elements['arm-toggle'].events.click();
+  const slider = h.elements['joint-lower']; slider.events.focus();
+  h.key('keydown', 'Shift', {target: slider});
+  h.key('keydown', 'ArrowUp', {target: slider, preventDefault() { assert.fail('native range key'); }});
+  await h.tick();
+  assert.equal(h.lastDrive().motion, 'stop');
+  assert.deepEqual(h.lastDrive().arm.jog, {});
+});
+
+test('a slider change during an in-flight request is sent on the next heartbeat', async () => {
+  let defer = false, resolveDrive;
+  const h = harness((url, data) => {
+    if (url === '/api/drive' && defer) return new Promise(resolve => { resolveDrive = resolve; });
+    return successful(data);
+  });
+  await h.connect(); h.elements['arm-toggle'].events.click();
+  const slider = h.elements['joint-camera']; slider.value = '30'; slider.events.input();
+  defer = true;
+  const ticking = h.tick(); await h.flush();
+  assert.deepEqual(h.lastDrive().arm.targets, {camera: 30});
+  slider.value = '80'; slider.events.input();
+  resolveDrive(successful(h.lastDrive())); await ticking;
+  defer = false; await h.tick();
+  assert.deepEqual(h.lastDrive().arm.targets, {camera: 80});
 });

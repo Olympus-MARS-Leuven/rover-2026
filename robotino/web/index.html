@@ -4,10 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robotino-token" content="__TOKEN__">
-  <title>Robotino · Track control</title>
+  <title>Robotino · Drive and arm control</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; background:#101922; color:#edf3f8; }
-    body { margin:0; padding:28px; } main { max-width:680px; margin:auto; }
+    body { margin:0; padding:28px; } main { max-width:1100px; margin:auto; }
+    .layout { display:grid; grid-template-columns:1fr 1.2fr; gap:22px; align-items:start; }
+    @media (max-width:850px) { .layout { grid-template-columns:1fr; } body { padding:18px; } }
     .brand { color:#8bacbd; letter-spacing:.15em; font-size:.8rem; }
     h1 { font-size:2.3rem; margin:12px 0; } p { line-height:1.6; }
     .mode { display:inline-block; background:#203644; color:#aee6ff; padding:8px 12px; border-radius:8px; }
@@ -18,6 +20,15 @@
     #speed { width:100%; accent-color:#aee6ff; cursor:pointer; }
     #speed:focus-visible { outline:3px solid white; outline-offset:4px; }
     .speed-scale { display:flex; justify-content:space-between; }
+    input[type=range] { width:100%; accent-color:#aee6ff; cursor:pointer; }
+    input:disabled { opacity:.4; cursor:default; }
+    .joint { border-top:1px solid #344c5b; padding:14px 0 8px; }
+    .joint-heading { display:flex; justify-content:space-between; gap:12px; margin-bottom:8px; }
+    .joint label { font-weight:700; } .joint output { color:#aee6ff; white-space:nowrap; }
+    h2 { margin:0 0 12px; } .arm-buttons { display:flex; flex-wrap:wrap; gap:10px; }
+    #arm-toggle { background:#aee6ff; color:#102332; }
+    #arm-hold { background:#e8c977; color:#29200a; }
+    button:disabled { opacity:.45; cursor:default; }
     button { font:inherit; padding:14px 20px; border:0; border-radius:9px; cursor:pointer; font-weight:700; }
     button:focus-visible { outline:3px solid white; outline-offset:4px; }
     #connect { background:#aee6ff; color:#102332; } #connect:disabled { opacity:.5; cursor:default; }
@@ -30,10 +41,14 @@
 <body>
 <main>
   <div class="brand">OLYMPUS MARS / ROBOTINO</div>
-  <h1>Track control</h1>
+  <h1>Drive and arm control</h1>
   <div class="mode">__MODE__</div>
+  <div class="mode">__SERVO_MODE__</div>
   <p>Connect, then hold <kbd>Shift</kbd> and one direction key. Release either to stop.</p>
+  <div class="layout">
+  <div>
   <section class="panel">
+    <h2>Tracks</h2>
     <div id="status" role="status" aria-live="polite">Disconnected</div>
     <p id="motion">Stopped</p>
     <div class="tracks"><span>Left: <b id="left">0%</b></span><span>Right: <b id="right">0%</b></span></div>
@@ -53,7 +68,49 @@
     <tr><td>Disconnect and stop</td><td>Esc, Space, or STOP</td></tr>
   </table>
   <p class="muted">Starts at __DEFAULT_SPEED__% duty on page load. Keep the tracks raised for the first test. Switching tabs disconnects control. After a connection fault, reconnect manually. A lost link stops motor power after about __TIMEOUT__ seconds.</p>
-  <p class="muted">STOP is a software command. Keep the robot’s power switch accessible. Arm and camera controls will be added after the track tests.</p>
+  </div>
+  <section class="panel" aria-labelledby="arm-title">
+    <h2 id="arm-title">Arm and camera</h2>
+    <p id="arm-status" role="status">Released</p>
+    <div class="arm-buttons">
+      <button id="arm-toggle" disabled>Enable arm + camera</button>
+      <button id="arm-hold" disabled>Hold position</button>
+    </div>
+    <p class="muted">Enable, then use a slider or hold Shift + one joint key. Each joint starts on first use. Hold position pauses travel and keeps support; Release servos removes holding force.</p>
+    <div class="speed">
+      <label for="arm-speed">Movement speed: <output id="arm-speed-value" for="arm-speed">100%</output></label>
+      <input id="arm-speed" type="range" min="25" max="200" step="25" value="100" disabled>
+      <div class="speed-scale muted"><span>Slow</span><span>Fast</span></div>
+    </div>
+    <div class="joint">
+      <div class="joint-heading"><label for="joint-camera">Camera tilt · I / K</label><output id="position-camera" for="joint-camera">Inactive</output></div>
+      <input id="joint-camera" type="range" min="0" max="100" step="1" value="100" disabled>
+      <div class="speed-scale muted"><span>Up · Shift+I</span><span>Down · Shift+K</span></div>
+    </div>
+    <div class="joint">
+      <div class="joint-heading"><label for="joint-lower">Lower arm · F / R</label><output id="position-lower" for="joint-lower">Inactive</output></div>
+      <input id="joint-lower" type="range" min="0" max="100" step="1" value="0" disabled>
+      <div class="speed-scale muted"><span>Down · Shift+F</span><span>Up · Shift+R</span></div>
+    </div>
+    <div class="joint">
+      <div class="joint-heading"><label for="joint-upper">Upper arm · T / G</label><output id="position-upper" for="joint-upper">Inactive</output></div>
+      <input id="joint-upper" type="range" min="0" max="100" step="1" value="53" disabled>
+      <div class="speed-scale muted"><span>Up · Shift+T</span><span>Down · Shift+G</span></div>
+    </div>
+    <div class="joint">
+      <div class="joint-heading"><label for="joint-wrist">Wrist rotation · J / L</label><output id="position-wrist" for="joint-wrist">Inactive</output></div>
+      <input id="joint-wrist" type="range" min="0" max="100" step="1" value="0" disabled>
+      <div class="speed-scale muted"><span>Left · Shift+J</span><span>Right · Shift+L</span></div>
+    </div>
+    <div class="joint">
+      <div class="joint-heading"><label for="joint-gripper">Gripper · O / P</label><output id="position-gripper" for="joint-gripper">Inactive</output></div>
+      <input id="joint-gripper" type="range" min="0" max="100" step="1" value="0" disabled>
+      <div class="speed-scale muted"><span>Open · Shift+O</span><span>Close · Shift+P</span></div>
+    </div>
+    <p class="muted">Percentages show commanded travel within the configured limits, not measured angles. Initial limits come from the original code; gripper closing is restricted to your tested position. Check each joint separately.</p>
+  </section>
+  </div>
+  <p class="muted">STOP, a hidden tab or a connection fault releases servo support as well as stopping the tracks. Support the arm when testing. Keep the robot’s power switch accessible; this is a software stop.</p>
 </main>
 <script src="/controls.js"></script>
 </body>

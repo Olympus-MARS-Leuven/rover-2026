@@ -113,8 +113,9 @@ class GPIOMotors:
 class Controller:
     """Single operator; each command needs a fresh, one-use server challenge."""
 
-    def __init__(self, motors, clock=time.monotonic):
+    def __init__(self, motors, clock=time.monotonic, arm=None):
         self.motors = motors
+        self.arm = arm
         self.clock = clock
         self.lock = threading.Lock()
         self.session = None
@@ -129,13 +130,24 @@ class Controller:
         except Exception:
             self.faulted = True
             self.session = self.challenge = None
-            self.motors.close()
+            self._close_outputs()
             raise
+
+    def _close_outputs(self):
+        try:
+            self.motors.close()
+        finally:
+            if self.arm is not None:
+                self.arm.close()
 
     def _stop(self):
         self.session = self.challenge = None
         self.motion = "stop"
-        self._write((0, 0))
+        try:
+            self._write((0, 0))
+        finally:
+            if self.arm is not None:
+                self.arm.release()
 
     def _expire(self):
         if self.session is not None and self.clock() >= self.deadline:
@@ -144,9 +156,12 @@ class Controller:
     def _reply(self):
         self.challenge = secrets.token_urlsafe(24)
         self.deadline = self.clock() + TIMEOUT
-        return {"session": self.session, "challenge": self.challenge,
-                "motion": self.motion, "left": self.motors.value[0],
-                "right": self.motors.value[1]}
+        result = {"session": self.session, "challenge": self.challenge,
+                  "motion": self.motion, "left": self.motors.value[0],
+                  "right": self.motors.value[1]}
+        if self.arm is not None:
+            result["arm"] = self.arm.status()
+        return result
 
     def connect(self):
         with self.lock:
@@ -177,6 +192,17 @@ class Controller:
             if type(speed) not in (int, float) or not 0 <= speed <= MAX_SPEED:
                 self._stop()
                 raise ControlError("Speed must be a number between 0 and 1 (0–100% duty)")
+            if self.arm is not None:
+                try:
+                    self.arm.configure(data.get("arm", {"enabled": False}))
+                except ValueError as exc:
+                    self._stop()
+                    raise ControlError(str(exc)) from None
+                except Exception:
+                    self.faulted = True
+                    self.session = self.challenge = None
+                    self._close_outputs()
+                    raise
             self.motion = motion if deadman else "stop"
             if speed == 0:
                 self.motion = "stop"
@@ -191,10 +217,18 @@ class Controller:
     def watchdog(self):
         with self.lock:
             self._expire()
+            if self.arm is not None and self.session is not None and not self.faulted:
+                try:
+                    self.arm.step()
+                except Exception:
+                    self.faulted = True
+                    self.session = self.challenge = None
+                    self._close_outputs()
+                    raise
 
     def close(self):
         with self.lock:
             self.session = self.challenge = None
             self.faulted = True
             self.motion = "stop"
-            self.motors.close()
+            self._close_outputs()

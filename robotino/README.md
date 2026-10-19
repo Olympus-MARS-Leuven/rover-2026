@@ -1,8 +1,11 @@
-# Robotino: first keyboard-driving milestone
+# Robotino: keyboard driving and arm control
 
 Target: original green Adeept Motor Shield V2, Raspberry Pi 3 Model B,
 Raspberry Pi OS Bookworm Lite 64-bit, Python 3.11. Login used for this robot:
-`robotino@robotino-pi.local`. Arm and camera are not implemented in this milestone.
+`robotino@robotino-pi.local`. The browser controls the tracks and all five arm/camera
+joints. Read [ARM_CONTROL.md](ARM_CONTROL.md) for joint sliders, keyboard jogging,
+movement speed, initial software limits and servo-only testing. Camera streaming
+and PS4 input are not implemented yet.
 
 This is a bench-test version, not yet the finished public-event application.
 The hardware-free tests cannot establish physical track direction, stopping
@@ -29,6 +32,10 @@ and pull-request rules; do not merge directly into `main`.
 | --- | --- |
 | `robotino_app.py` | Local HTTP server, hardware selection, watchdog, shutdown |
 | `drive.py` | Motor pins, selected motor duty, expiring control sessions |
+| `arm.py` | Five joint limits, smooth ramps, holding/release and servo drivers |
+| `hardware.py` | Shared Pi checks and exclusive hardware ownership |
+| `servo_test.py` | Finite one-channel servo ramp based on the original web app; simulation by default |
+| `servo_probe.py` | Explicit one-channel servo identification; simulation by default |
 | `web/index.html` | English control page |
 | `web/controls.js` | Keyboard handling, speed slider and command heartbeats |
 | `tests/` | Hardware-free checks for timeout, stale commands, wiring and HTTP |
@@ -42,13 +49,14 @@ In the Pi terminal:
 uname -m
 getconf LONG_BIT
 sudo apt update
-sudo apt install -y python3-rpi.gpio
+sudo apt install -y python3-rpi.gpio python3-smbus
 python3 -c "import RPi.GPIO as GPIO; print(GPIO.VERSION)"
 id -nG
 ```
 
-Expected architecture: `aarch64` and `64`. Your groups should include `gpio`.
-If `gpio` is missing, run `sudo usermod -aG gpio robotino` and log out/in.
+Expected architecture: `aarch64` and `64`. Your groups should include `gpio`
+and, for servo operation, `i2c`. If missing, run
+`sudo usermod -aG gpio,i2c robotino` and log out/in.
 Run the app as the normal `robotino` user, without `sudo`.
 
 In `sudo raspi-config`, keep I2C enabled, serial login **disabled**, serial port
@@ -83,8 +91,12 @@ scp -r .\robotino robotino@robotino-pi.local:~/
 
 This initial transfer copies this small project folder into `/home/robotino/robotino`.
 Do not put backups, credentials, or a virtual environment inside this folder.
-The project currently uses only standard Python modules plus the OS-provided
-RPi.GPIO package; it does not require pip or a virtual environment.
+Driving uses standard Python modules plus the OS-provided RPi.GPIO package.
+The browser arm controls and servo tools also need the OS package `python3-smbus`.
+Neither requires pip or a virtual environment. Start with
+`python3 robotino_app.py --servos` for real joints and disabled tracks, then use
+`python3 robotino_app.py --hardware --servos` for combined real operation after
+joint checks. Without `--servos`, the arm remains simulated.
 
 ## 3. Test without moving anything
 
@@ -187,6 +199,9 @@ Before disconnecting power normally: Ctrl+C to stop the app, then
   message is covered by the Pi timeout. Conflicting direction keys request stop.
 - Both PWM enables drop to zero before changing direction. Reversals include
   a 50 ms coast interval. Normal exit leaves enable pins driven LOW.
+- With real servos enabled, STOP, disconnect, timeout and normal shutdown also
+  remove servo signals. The arm can sag; support it during tests. The arm panel's
+  **Hold position** pauses joint travel while keeping servo support.
 - This is a **software stop**, not a safety-rated emergency stop. A Pi freeze,
   forced process termination, GPIO failure or power fault can defeat software
   protections. Keep physical power cutoff available. The tracks may coast.
@@ -203,7 +218,12 @@ polarity is corrected using the subsequent physical-test feedback:
 
 PWM is 1 kHz. The old source's startup pulses at 100% duty are not reproduced.
 The servo controller responds at I2C `0x40`; `0x70` is normally its all-call
-address. This app does not initialise it, set its PWM, or move any servo.
+address. The app uses real servos only with `--servos`; all outputs start OFF and
+each joint starts on first use in the page. Servo preparation disables all-call,
+so `0x70` may disappear from later scans. Only `0x40` is used for servo commands.
+The separate terminal tools require their own `--hardware` flag for movement.
+Joint channels and initial limits come from the user's original backup; see
+[ARM_CONTROL.md](ARM_CONTROL.md) for provenance and the tighter gripper limit.
 
 Sources: [vendor repository](https://github.com/adeept/Adeept_RaspTank),
 [RPi.GPIO basics](https://sourceforge.net/p/raspberry-gpio-python/wiki/BasicUsage/),
@@ -211,6 +231,6 @@ Sources: [vendor repository](https://github.com/adeept/Adeept_RaspTank),
 [PCA9685 datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf),
 [Raspberry Pi config.txt GPIO settings](https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio).
 
-Next milestones after physical validation: motor direction/calibration, arm
-channel mapping and travel limits, PS4 input, event network, optional camera,
-then supervised usability and endurance tests.
+Next milestones: physical checks and any required tightening of the joint limits,
+PS4 input, event network, optional camera streaming, then supervised usability and
+endurance tests.

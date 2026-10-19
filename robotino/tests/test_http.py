@@ -5,13 +5,15 @@ import threading
 import unittest
 
 from drive import Controller, SimulatedMotors
+from arm import Arm, SimulatedServos
 from robotino_app import LocalServer, make_handler
 
 
 class HTTPTests(unittest.TestCase):
     def setUp(self):
         self.motors = SimulatedMotors()
-        self.control = Controller(self.motors)
+        self.arm = Arm(SimulatedServos())
+        self.control = Controller(self.motors, arm=self.arm)
         self.server = LocalServer(("127.0.0.1", 0), make_handler(self.control))
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01})
@@ -50,6 +52,14 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/controls.js")[0], 200)
         self.assertEqual(self.request("GET", "/../drive.py")[0], 404)
 
+    def test_servo_only_banner_clearly_indicates_real_hardware(self):
+        self.server.RequestHandlerClass = make_handler(self.control, hardware=False, servos=True)
+        status, body = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn("TRACK MOTORS DISABLED", body)
+        self.assertIn("REAL SERVOS", body)
+        self.assertNotIn("SIMULATION", body)
+
     def test_missing_token_foreign_origin_and_foreign_host_are_rejected(self):
         self.assertEqual(self.request("POST", "/api/connect", {})[0], 403)
         self.assertEqual(self.request("POST", "/api/connect", {}, {
@@ -85,6 +95,26 @@ class HTTPTests(unittest.TestCase):
         self.assertIn("Speed", result["error"])
         self.assertEqual(self.motors.value, (0, 0))
         self.assertIsNone(self.control.session)
+
+    def test_arm_enable_is_stationary_then_slider_and_hold_use_existing_session(self):
+        _, credentials = self.post("/api/connect", {})
+        status, credentials = self.post("/api/drive", {
+            **credentials, "motion": "stop", "deadman": False, "arm": {"enabled": True}})
+        self.assertEqual(status, 200)
+        self.assertTrue(credentials["arm"]["enabled"])
+        self.assertEqual(self.arm.driver.outputs, {})
+        status, credentials = self.post("/api/drive", {
+            **credentials, "motion": "stop", "deadman": False,
+            "arm": {"enabled": True, "targets": {"gripper": 100}}})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.arm.targets["gripper"], 330)
+        self.assertEqual(self.arm.active, {"gripper"})
+        status, credentials = self.post("/api/drive", {
+            **credentials, "motion": "stop", "deadman": False, "arm": {"enabled": True, "hold": True}})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.arm.targets["gripper"], self.arm.positions["gripper"])
+        self.post("/api/stop", {"session": credentials["session"]})
+        self.assertEqual(self.arm.driver.outputs, {})
 
 
 if __name__ == "__main__":

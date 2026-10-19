@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run: python3 robotino_app.py (simulation), add --hardware for real motors."""
+"""Simulation by default; --hardware enables tracks, --servos enables real servo controls."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import ExitStack
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import logging
@@ -14,6 +14,8 @@ import threading
 from urllib.parse import urlsplit
 
 from drive import Controller, ControlError, DEFAULT_SPEED, GPIOMotors, MAX_SPEED, SimulatedMotors, TIMEOUT
+from arm import Arm, HardwareServos, SimulatedServos
+from hardware import hardware_lock
 
 WEB = Path(__file__).parent / "web"
 
@@ -23,7 +25,7 @@ class LocalServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
-def make_handler(controller, hardware=False):
+def make_handler(controller, hardware=False, servos=False):
     token = secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
@@ -68,10 +70,13 @@ def make_handler(controller, hardware=False):
                 return
             if self.path == "/":
                 body = (WEB / "index.html").read_text(encoding="utf-8")
-                body = body.replace("__TOKEN__", token).replace(
-                    "__MODE__", "MOTORS ENABLED" if hardware else "SIMULATION — motors disabled")
+                track_mode = "MOTORS ENABLED" if hardware else "TRACK MOTORS DISABLED"
+                if not hardware and not servos:
+                    track_mode = "SIMULATION — motors disabled"
+                body = body.replace("__TOKEN__", token).replace("__MODE__", track_mode)
                 body = body.replace("__DEFAULT_SPEED__", str(round(DEFAULT_SPEED * 100))).replace(
                     "__MAX_SPEED__", str(round(MAX_SPEED * 100))).replace("__TIMEOUT__", f"{TIMEOUT:g}")
+                body = body.replace("__SERVO_MODE__", "REAL SERVOS" if servos else "SERVOS SIMULATED")
                 self.reply(200, body.encode(), "text/html; charset=utf-8")
             elif self.path == "/controls.js":
                 self.reply(200, (WEB / "controls.js").read_bytes(), "text/javascript; charset=utf-8")
@@ -117,41 +122,25 @@ def make_handler(controller, hardware=False):
     return Handler
 
 
-@contextmanager
-def hardware_lock(enabled):
-    if not enabled:
-        yield
-        return
-    import fcntl
-    import os
-    if not Path("/proc/device-tree/model").read_text().startswith("Raspberry Pi 3 Model B "):
-        raise RuntimeError("This hardware driver is configured only for the Raspberry Pi 3 Model B")
-    cmdline = Path("/proc/cmdline").read_text()
-    if any(s in cmdline for s in ("console=serial", "console=ttyAMA", "console=ttyS")):
-        raise RuntimeError("Disable the serial login console in raspi-config before motor tests")
-    if os.geteuid() == 0:
-        raise RuntimeError("Run as your normal user, without sudo (use the gpio group)")
-    # A separate lock prevents two instances on different HTTP ports driving GPIO.
-    with open(f"/tmp/robotino-drive-{os.getuid()}.lock", "a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise RuntimeError("Another Robotino hardware process is already running") from None
-        yield
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hardware", action="store_true", help="Explicitly enable real track motors")
+    parser.add_argument("--servos", action="store_true", help="Allow real servos; enable arm in the page to move")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     # Claim the port BEFORE touching hardware. The service is never exposed to LAN.
     with LocalServer(("127.0.0.1", args.port), BaseHTTPRequestHandler) as server:
-        with hardware_lock(args.hardware):
-            motors = GPIOMotors() if args.hardware else SimulatedMotors()
-            controller = Controller(motors)
-            server.RequestHandlerClass = make_handler(controller, args.hardware)
+        with hardware_lock(args.hardware or args.servos), ExitStack() as cleanup:
+            # Servo-only mode still holds the real track enables LOW.
+            real_motors = GPIOMotors() if args.hardware or args.servos else None
+            if real_motors is not None:
+                cleanup.callback(real_motors.close)
+            motors = real_motors if args.hardware else SimulatedMotors()
+            servo_driver = HardwareServos() if args.servos else SimulatedServos()
+            cleanup.callback(servo_driver.close)
+            controller = Controller(motors, arm=Arm(servo_driver))
+            server.RequestHandlerClass = make_handler(controller, args.hardware, args.servos)
             finished = threading.Event()
 
             def watchdog():
@@ -169,11 +158,17 @@ def main():
             def terminate(*_):
                 raise KeyboardInterrupt
 
-            signal.signal(signal.SIGTERM, terminate)
+            for name in ("SIGTERM", "SIGHUP"):
+                sig = getattr(signal, name, None)
+                if sig is not None:
+                    signal.signal(sig, terminate)
             logging.info("%s | default duty %.0f%%, adjustable up to %.0f%% | timeout %g s",
-                         "REAL MOTORS ENABLED" if args.hardware else "SIMULATION: no GPIO access",
+                         ("REAL MOTORS ENABLED" if args.hardware else
+                          "REAL SERVOS / TRACKS DISABLED" if args.servos else "SIMULATION: no GPIO access"),
                          DEFAULT_SPEED * 100, MAX_SPEED * 100, TIMEOUT)
             logging.info("Open http://127.0.0.1:%s via SSH port forwarding. Ctrl+C stops the app.", args.port)
+            logging.info("%s | arm starts disabled; joints move only when individually commanded",
+                         "REAL SERVOS AVAILABLE" if args.servos else "SERVOS SIMULATED")
             try:
                 server.serve_forever(poll_interval=0.1)
             except KeyboardInterrupt:
