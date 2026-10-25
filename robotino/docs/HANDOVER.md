@@ -91,7 +91,7 @@ The accompanying ZIP is **not stored in the repository**; references to it (incl
 
 The snapshots contain neither Git history nor a connection to GitHub. To contribute changes, use the real repository and the appropriate branch. Do not replace the whole shared repository with a snapshot.
 
-**Unknown:** the exact files and revision currently installed under `/home/robotino/robotino` on the Pi.
+**Checked 25 October (user output, read-only):** `/home/robotino/robotino` holds the arm-branch code. All nine `.py`/`web` files match commit `d5b0eb2` once line endings are ignored; they were copied at 00:29 on 20 October. Five files have Windows (CRLF) line endings (`drive.py`, `move.py`, `robotino_app.py`, `web/controls.js`, `web/index.html`); the other four have LF. Python and the browser accept both, but a CRLF shebang breaks `./robotino_app.py`, so start it with `python3 robotino_app.py`. The Pi has no `docs/` or `CLAUDE.md` (not needed there). The live Pi reports Debian 12 bookworm, `aarch64`, 64-bit, Python 3.11.2, and the user is in the `gpio` and `i2c` groups. No `robotino_app.py` was running.
 
 ## 4. Hardware inventory and wiring
 

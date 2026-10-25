@@ -48,7 +48,9 @@ first, then only the sections you need).
 
 ## Pi and deployment
 - Pi: robotino@robotino-pi.local, Raspberry Pi OS Bookworm Lite 64-bit
-  (intended target; confirm with uname -m), Python 3.11.2.
+  (confirmed aarch64 on 2026-10-25), Python 3.11.2.
+- Pi currently has the arm-branch code (d5b0eb2), copied by scp with mixed
+  CRLF/LF line endings. Start with python3 robotino_app.py, not ./.
 - Packages: python3-rpi.gpio, python3-smbus. User needs the gpio and i2c groups.
 - Pushing to GitHub deploys nothing. scp copies files but does not remove
   deleted ones. Never delete the Pi's folder to fix uncertainty.
@@ -56,9 +58,8 @@ first, then only the sections you need).
   --servos (real servos), both flags (everything real).
 
 ## Priorities (update this list after each session)
-1. Confirm what is installed and running on the Pi.
-2. Physically validate lower arm, upper arm and wrist (channels 12, 13, 14).
-3. Review first-move and release behaviour (arm can sag, position unsensed).
-4. Measure real stopping time on link loss (2 s timeout).
-5. Choose a clean deployment method.
-6. PS4 input, then optional video, then all-day power.
+1. Physically validate lower arm, upper arm and wrist (channels 12, 13, 14).
+2. Review first-move and release behaviour (arm can sag, position unsensed).
+3. Measure real stopping time on link loss (2 s timeout).
+4. Choose a clean deployment method (also fixes the mixed line endings).
+5. PS4 input, then optional video, then all-day power.
