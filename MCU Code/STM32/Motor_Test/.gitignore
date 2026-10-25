@@ -1,0 +1,15 @@
+# Build output
+Debug/
+Release/
+*.elf
+*.map
+*.list
+*.o
+*.d
+*.su
+*.cyclo
+*.bin
+*.hex
+
+# Personal debug settings (contain paths from one PC)
+*.launch
