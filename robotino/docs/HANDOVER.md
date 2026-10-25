@@ -71,6 +71,8 @@ Project scope is its `robotino/` directory. The repository's root README describ
 | Keyboard merge into main | `f0b9be6` | PR #5 merge in the inspected history. |
 | `robotino/feature/arm-control` | `d5b0eb2cb8d4e059ed1b61d5110a6f30339ee465` | Finite servo tests plus integrated arm/camera-tilt controls. Commit dated 20 October, 00:37:39 local time; message “test of arm's joint”. |
 
+Update: the branch tip is now `50e790b` ("claude notes and handover for robotino"), which adds only `CLAUDE.md`, this handover and the two hardware PDFs on top of `d5b0eb2`. The arm code itself is unchanged.
+
 The arm commit is **not an ancestor of the inspected main**. Local cached origin references matched the feature-branch commits. No fresh fetch from GitHub was performed for this handover; remote changes made elsewhere could therefore be missing.
 
 The original checkout had a clean Git status when inspected. Ignored Python caches were present, including arm-related caches left behind on main. **A cached `.pyc` file does not establish that its source exists on the active branch.**
@@ -79,7 +81,7 @@ Direct Git access to the original checkout was restricted in the handover enviro
 
 ### Included source snapshots
 
-The accompanying ZIP contains exact tracked-file exports of:
+The accompanying ZIP is **not stored in the repository**; references to it (including the `03_validation/` logs) describe a separate package. It contains exact tracked-file exports of:
 
 - `01_main/` — root README and Robotino files at main's commit above.
 - `02_arm_control/` — root README and Robotino files at the arm branch commit above.
