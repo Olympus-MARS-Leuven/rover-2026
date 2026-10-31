@@ -1,45 +1,59 @@
-# Robotino: keyboard driving and arm control
+# Robotino: browser and PS4 control, video and guided setup
 
 Target: original green Adeept Motor Shield V2, Raspberry Pi 3 Model B,
 Raspberry Pi OS Bookworm Lite 64-bit, Python 3.11. Login used for this robot:
-`robotino@robotino-pi.local`. The browser controls the tracks and all five arm/camera
-joints. Read [ARM_CONTROL.md](ARM_CONTROL.md) for joint sliders, keyboard jogging,
-movement speed, initial software limits and servo-only testing. Camera streaming
-and PS4 input are not implemented yet.
+`robotino@robotino-pi.local`.
 
-This is a bench-test version, not yet the finished public-event application.
-The hardware-free tests cannot establish physical track direction, stopping
-distance, available torque, power stability, or performance on this Pi.
+One local web page (reached through an SSH tunnel) controls everything:
+
+- **Tracks** with the keyboard (Shift + arrows/ZQSD) or the **PS4 controller**
+  (left stick, proportional).
+- **Arm and camera tilt** with sliders, Shift + keys, or the controller in ARM
+  mode (△ switches DRIVE ↔ ARM). See [ARM_CONTROL.md](ARM_CONTROL.md).
+- **Video** from the ribbon camera, started on demand.
+- **Pi health**: under-voltage (weak batteries), throttling, temperature, CPU.
+- **Setup & tests**: a guided tab that moves one thing at a time, asks what you
+  saw, saves the measured calibration on the Pi and produces a report.
+
+First session with real hardware: follow [FIRST_RUN.md](FIRST_RUN.md).
+
+This is still a bench-test version. The hardware-free tests cannot establish
+physical directions, stopping distance, torque, power stability or Pi
+performance; the Setup & tests tab exists to measure those.
 
 ## Where everything happens
 
 | Place | Purpose |
 | --- | --- |
-| PC: local VS Code window | Edit the source code and use Codex |
-| PC: GitHub Desktop | Review changes, commit, and publish your feature branch |
+| PC: local VS Code window | Edit the source code |
+| PC: GitHub Desktop or Git | Review changes, commit, and publish your feature branch |
 | GitHub | Shared history of the project; it does not run the robot |
+| PC: PowerShell | `tools/deploy.ps1` installs the committed code on the Pi |
 | Pi: SSH terminal | Run Python, which controls the shield |
-| PC: browser | Read keyboard events and send commands through an SSH tunnel |
+| PC: browser | Page with keyboard, PS4 controller, video and setup tests |
 
-Editing on the PC does not automatically update the Pi. Repeat the copy command
-after edits, with the running robot app stopped. A commit saves a local snapshot;
-a push/publish uploads commits to GitHub. Follow the repository's feature-branch
-and pull-request rules; do not merge directly into `main`.
+Editing on the PC does not update the Pi, and a commit or push does not either.
+Deploy after committing. Follow the repository's feature-branch and pull-request
+rules; do not merge directly into `main`.
 
 ## Files
 
 | File | Responsibility |
 | --- | --- |
-| `robotino_app.py` | Local HTTP server, hardware selection, watchdog, shutdown |
-| `drive.py` | Motor pins, selected motor duty, expiring control sessions |
-| `arm.py` | Five joint limits, smooth ramps, holding/release and servo drivers |
+| `robotino_app.py` | Local HTTP server, hardware selection, watchdog, status, video endpoint |
+| `drive.py` | Motor pins, duty, analog (stick) driving, expiring control sessions |
+| `arm.py` | Joint limits, ramps, freeze/release, start-position estimates, servo drivers |
+| `calibration.py` | Measured settings in `~/.config/robotino/calibration.json` |
+| `camera.py` | On-demand MJPEG video from `rpicam-vid` (test card on a PC) |
+| `health.py` | Under-voltage, throttling, temperature and CPU readings and logs |
 | `hardware.py` | Shared Pi checks and exclusive hardware ownership |
-| `servo_test.py` | Finite one-channel servo ramp based on the original web app; simulation by default |
-| `servo_probe.py` | Explicit one-channel servo identification; simulation by default |
-| `web/index.html` | English control page |
-| `web/controls.js` | Keyboard handling, speed slider and command heartbeats |
-| `tests/` | Hardware-free checks for timeout, stale commands, wiring and HTTP |
-| `move.py` | Existing vendor example; not imported or run by this application |
+| `servo_test.py`, `servo_probe.py` | Finite one-channel servo tools from the arm investigation |
+| `web/index.html`, `web/controls.js` | Page, keyboard, controller, video, health |
+| `web/gamepad.js` | PS4 button and stick mapping (pure functions) |
+| `web/setup.js`, `web/setup_logic.js` | Setup & tests tab and its calculations/report |
+| `tools/deploy.ps1`, `tools/install_release.sh` | Release-based installation on the Pi |
+| `tests/` | Hardware-free checks (Python and Node.js) |
+| `move.py` | Vendor example; not imported or run by this application |
 
 ## 1. Prepare the Pi
 
@@ -52,12 +66,15 @@ sudo apt update
 sudo apt install -y python3-rpi.gpio python3-smbus
 python3 -c "import RPi.GPIO as GPIO; print(GPIO.VERSION)"
 id -nG
+rpicam-hello --list-cameras
 ```
 
-Expected architecture: `aarch64` and `64`. Your groups should include `gpio`
-and, for servo operation, `i2c`. If missing, run
-`sudo usermod -aG gpio,i2c robotino` and log out/in.
+Expected architecture: `aarch64` and `64` (confirmed on 25 October 2026).
+Your groups should include `gpio`, `i2c` and `video`. If missing, run
+`sudo usermod -aG gpio,i2c,video robotino` and log out/in.
 Run the app as the normal `robotino` user, without `sudo`.
+Video needs the camera tools, normally included in Raspberry Pi OS Lite; if
+`rpicam-hello` is not found, install them with `sudo apt install -y rpicam-apps-lite`.
 
 In `sudo raspi-config`, keep I2C enabled, serial login **disabled**, serial port
 hardware **disabled**, and 1-Wire **disabled**. GPIO14/15 are motor direction
@@ -80,23 +97,27 @@ Save with Ctrl+O, Enter, then exit with Ctrl+X. Reboot with `sudo reboot`.
 This boot setting complements the software stop; it is not a physical emergency
 stop and cannot cover the interval before firmware configures the pins.
 
-## 2. Copy from PC to Pi
+## 2. Deploy from PC to Pi
 
-Stop any running Robotino app with Ctrl+C before replacing its files.
-From a **local Windows PowerShell terminal** in the repository root:
+Stop any running Robotino app with Ctrl+C before deploying. Commit your changes,
+then from a **local Windows PowerShell terminal** in the repository:
 
 ```powershell
-scp -r .\robotino robotino@robotino-pi.local:~/
+powershell -ExecutionPolicy Bypass -File .\robotino\tools\deploy.ps1
 ```
 
-This initial transfer copies this small project folder into `/home/robotino/robotino`.
-Do not put backups, credentials, or a virtual environment inside this folder.
-Driving uses standard Python modules plus the OS-provided RPi.GPIO package.
-The browser arm controls and servo tools also need the OS package `python3-smbus`.
-Neither requires pip or a virtual environment. Start with
-`python3 robotino_app.py --servos` for real joints and disabled tracks, then use
-`python3 robotino_app.py --hardware --servos` for combined real operation after
-joint checks. Without `--servos`, the arm remains simulated.
+The script packs the committed `robotino/` folder with `git archive` (Linux line
+endings, `docs/` left out), copies it to `~/robotino-releases/<commit>` on the
+Pi and points `~/robotino` at it. Nothing is deleted: the first deployment keeps
+the old hand-copied folder as `~/robotino-before-releases`, and any previous
+release can be restored with `ln -sfn ~/robotino-releases/<commit> ~/robotino`.
+The page header and `~/robotino/VERSION` show which commit is running.
+
+The old `scp -r .\robotino robotino@robotino-pi.local:~/` method also works but
+does not remove deleted files and copies Windows line endings.
+
+Measured calibration, remembered servo positions, test reports and health logs
+are kept in `~/.config/robotino/`, outside the code, so deployments keep them.
 
 ## 3. Test without moving anything
 
@@ -117,94 +138,97 @@ python3 robotino_app.py
 On the PC, open <http://127.0.0.1:8765>. Keep the SSH terminal open.
 The page must say **SIMULATION — motors disabled**. This mode never imports
 RPi.GPIO or accesses motor pins. Click **Connect controls**, then hold Shift and
-one direction. The page should show signed motor percentages, while the robot
-stays still. STOP/Esc/Space disconnect; reconnect manually afterward.
+one direction, or use the controller. The page shows signed motor percentages
+while the robot stays still. STOP/Esc/Space/○ disconnect; reconnect manually
+(or with Options on the controller).
 
-The **Speed / motor duty** slider starts at **50%** whenever the page is loaded.
-It covers **0–100%** in 5-point steps and applies on the next command, including
-while driving. At 0%, both tracks stop. It changes the power sent to both motors;
-it does not measure speed or automatically balance a weaker track.
-
-Focusing the slider clears held driving keys. When it has focus, arrow keys
-adjust its value. Click elsewhere on the page before driving with arrows again.
-ZQSD still works with Shift. Changing the slider by itself never starts motion.
-
-To check the browser logic on a **PC with Node.js installed**, from the
-repository root:
+The same simulation runs on the PC itself: `python robotino_app.py` in the
+`robotino` folder, then the same address. To check the browser logic on a
+**PC with Node.js installed**, from the `robotino` folder:
 
 ```powershell
-node --test .\robotino\tests\test_keyboard.cjs
+node --test tests/test_keyboard.cjs tests/test_gamepad.cjs tests/test_setup_logic.cjs
 ```
 
-## 4. First physical test
+The **Speed / motor duty** slider starts at **50%** whenever the page is loaded.
+It is the maximum for both the keyboard and the stick, covers **0–100%** in
+5-point steps (10 with the D-pad) and applies on the next command. At 0%, both
+tracks stop. It changes the power sent to both motors; it does not measure
+speed. Focusing the slider clears held driving keys; when it has focus, arrow
+keys adjust its value.
 
-Support the rover so both tracks can spin clear of the surface. Keep its arm
-clear and the power switch accessible. Use charged batteries. Stop simulation
-with Ctrl+C, then in the same Pi terminal:
+## 4. Run modes
 
-```bash
-python3 robotino_app.py --hardware
-```
+| Command (Pi) | Real hardware |
+| --- | --- |
+| `python3 robotino_app.py` | None; tracks and servos simulated |
+| `python3 robotino_app.py --servos` | Servos; real track enables held LOW |
+| `python3 robotino_app.py --hardware` | Tracks; servos simulated |
+| `python3 robotino_app.py --hardware --servos` | Tracks and servos |
 
-Refresh the browser with Ctrl+F5. It must now say **MOTORS ENABLED** and show
-the speed slider at **50%**. Connect controls.
+Add `--no-camera` to switch the video off. Video starts only when the page shows
+it, in a separate `rpicam-vid` process, and stops 3 s after the last viewer.
+Presets: low 424×240 at 10 fps, normal 640×480 at 15 fps, smooth 640×480 at 25 fps.
 
-1. Briefly hold Shift+Up (or Shift+Z). Both tracks should drive forward.
-2. Release the direction key. Both tracks must stop being powered.
-3. Test backward, left and right briefly. Left/right pivot on the spot.
-4. While holding a direction, release Shift: power must stop.
-5. Test STOP, then reconnect and test switching to another browser tab.
-6. With tracks still raised, test loss of the SSH link. The Pi watchdog must
-   stop motor power after about **2 seconds**. Reconnecting the network must not
-   restart motion by itself.
+## 5. First physical tests
 
-Both tracks' motor polarity is set for your latest report that **all four
-directions** were reversed. Check forward, backward, left and right again:
-left/right pivot direction also depends on the track polarities. Stop the app
-before copying an update, then restart it so Python loads the new mapping.
+Use the **Setup & tests** tab ([FIRST_RUN.md](FIRST_RUN.md) explains each step).
+It checks servo channels and directions, joint limits, rest positions, the arm
+after STOP, track directions, minimum track power, driving straight, the
+lost-link stop, stopping distance, the controller and video, and saves what it
+measures. Track directions are never changed by calibration: the GPIO map and
+polarity below were accepted after two physical corrections.
 
-The previous fixed **25%** limit has been replaced by the slider. Start at **50%**
-with the tracks raised, then increase in 5- or 10-point steps if needed. Full duty
-is available at 100%; use the lowest setting that moves both tracks reliably.
-If a track buzzes or stays stuck, release immediately. Check for a tight track,
-obstruction, poor connection or weak batteries before repeatedly increasing duty.
-Higher duty cannot establish that the underlying problem is only a low setting.
-If direction or stopping is wrong, switch off and report which track did what.
-Test on a clear, level floor only after the raised-track checks pass; save ramps
-and blocks until both tracks move reliably under the robot's weight.
+## PS4 controller
 
-If timeouts continue, note the exact red message, whether the page was idle or
-driving, and any errors in the Pi terminal. The new timing allows short delays;
-it does not fix a dropped Wi-Fi or SSH connection.
+The controller is read by the browser (Gamepad API), so nothing is installed on
+the Pi and its commands use the same session, challenge and timeout as the
+keyboard. Plug it into the PC with the USB cable and press any button after the
+page has loaded.
 
-Before disconnecting power normally: Ctrl+C to stop the app, then
-`sudo shutdown -h now`, wait for shutdown, and switch off.
+| Control | Action |
+| --- | --- |
+| △ | DRIVE ↔ ARM (1 / 2 vibrations in Chrome; Firefox cannot vibrate). ARM also enables the arm |
+| Left stick (DRIVE) | Drive and turn, proportional; let go to stop |
+| Left stick ↕ (ARM) | Lower arm |
+| Right stick ↕ / ↔ (ARM) | Upper arm / wrist |
+| R2 / L2 (ARM) | Close / open the gripper |
+| D-pad ↑ / ↓ | Camera tilt (arm enabled) |
+| D-pad ← / → | Lower / raise the maximum drive duty, or arm speed in ARM |
+| Hold L1 or R1 | Precision: 40% of the movement |
+| ○ / Options | STOP and disconnect / connect |
+| □ / Share | Park the arm at its measured rest pose / release the servos |
+
+No shoulder button has to be held: a stick springs back to its centre, which is
+stop. The keyboard keeps its Shift deadman and has priority while it is used.
+Unplugging the controller or leaving the window stops controller movement at
+once; a Bluetooth dropout can take a few seconds to be noticed, so use the USB
+cable at events.
 
 ## How stopping works, and its limits
 
 - A fresh command is sent about every 80 ms plus network/processing time.
-- The browser allows **1.5 seconds** for each request (previously 0.3 seconds).
-  On failure it requests a stop and requires a manual reconnect.
+- The browser allows **1.5 seconds** for each request. On failure it requests
+  a stop and requires a manual reconnect.
 - The Pi expires a session after **2 seconds** without a fresh accepted command
-  (previously 0.4 seconds). This tolerates more network and Pi scheduling delays,
-  but a lost link or lost release message can leave motors powered for up to
-  about **2 seconds after the last accepted command**.
-  The watchdog checks every 20 ms. Linux scheduling adds jitter; this is not a
-  guaranteed real-time deadline. Measure the real stopping response on the Pi.
+  and logs how long it waited. A lost link or lost release message can leave
+  motors powered for up to about **2 seconds after the last accepted command**.
+  The watchdog checks every 20 ms; this is not a guaranteed real-time deadline.
+  The Setup & tests tab measures it.
 - Commands carry a one-use server challenge. Old or duplicated movement
   requests cannot renew an expired session. Only one page controls a session.
 - The browser holds at most one drive request in flight and clears its keys on
   blur, tab hiding, STOP and connection faults. It never reconnects automatically.
-- Releasing a direction or Shift is sent at the next heartbeat. A lost release
-  message is covered by the Pi timeout. Conflicting direction keys request stop.
 - Both PWM enables drop to zero before changing direction. Reversals include
   a 50 ms coast interval. Normal exit leaves enable pins driven LOW.
-- With real servos enabled, STOP, disconnect, timeout and normal shutdown also
-  remove servo signals. The arm can sag; support it during tests. The arm panel's
-  **Hold position** pauses joint travel while keeping servo support.
+- STOP, disconnect and timeout **freeze the arm**: it keeps holding for
+  **10 seconds** (so a block is not dropped), then releases. Enabling the arm
+  again within that time continues from where it is. **Release servos** (or
+  Share) removes holding force at once; normal shutdown also releases.
 - This is a **software stop**, not a safety-rated emergency stop. A Pi freeze,
   forced process termination, GPIO failure or power fault can defeat software
-  protections. Keep physical power cutoff available. The tracks may coast.
+  protections. The servo controller keeps its last signals if the Pi crashes.
+  Keep physical power cutoff available. The tracks may coast.
 
 ## Hardware references
 
@@ -217,20 +241,26 @@ polarity is corrected using the subsequent physical-test feedback:
 | Right (A) | 4 | 14 | 15 | LOW / HIGH |
 
 PWM is 1 kHz. The old source's startup pulses at 100% duty are not reproduced.
+Measured track calibration only adds a minimum moving duty and a straight-line
+trim; it never changes these directions.
+
 The servo controller responds at I2C `0x40`; `0x70` is normally its all-call
-address. The app uses real servos only with `--servos`; all outputs start OFF and
-each joint starts on first use in the page. Servo preparation disables all-call,
-so `0x70` may disappear from later scans. Only `0x40` is used for servo commands.
-The separate terminal tools require their own `--hardware` flag for movement.
-Joint channels and initial limits come from the user's original backup; see
-[ARM_CONTROL.md](ARM_CONTROL.md) for provenance and the tighter gripper limit.
+address. The app uses real servos only with `--servos`; all outputs start OFF.
+Joints whose position is known (measured rest pose, or remembered after the
+last release) are powered one by one when the arm is enabled; the others start
+on first use. Joint channels and initial limits come from the original backup
+until the Setup & tests tab saves measured values; see
+[ARM_CONTROL.md](ARM_CONTROL.md).
 
 Sources: [vendor repository](https://github.com/adeept/Adeept_RaspTank),
 [RPi.GPIO basics](https://sourceforge.net/p/raspberry-gpio-python/wiki/BasicUsage/),
 [RPi.GPIO PWM](https://sourceforge.net/p/raspberry-gpio-python/wiki/PWM/),
 [PCA9685 datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf),
-[Raspberry Pi config.txt GPIO settings](https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio).
+[Raspberry Pi config.txt GPIO settings](https://www.raspberrypi.com/documentation/computers/config_txt.html#gpio),
+[Raspberry Pi camera software](https://www.raspberrypi.com/documentation/computers/camera_software.html),
+[`vcgencmd get_throttled`](https://www.raspberrypi.com/documentation/computers/os.html#get_throttled),
+[Gamepad API standard mapping](https://w3c.github.io/gamepad/#remapping).
 
-Next milestones: physical checks and any required tightening of the joint limits,
-PS4 input, event network, optional camera streaming, then supervised usability and
-endurance tests.
+Next milestones: run the Setup & tests tab on the robot, event network and
+startup routine, all-day power (the health log in `~/.config/robotino/logs/`
+records under-voltage and temperature), then supervised usability tests.

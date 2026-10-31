@@ -861,6 +861,44 @@ Source of project branches and team workflow. The exact commits exported in this
 
 > Continue the Robotino project using this handover and the attached source/document package. First inspect the repository and confirm the active branch and Pi deployment. The corrected keyboard controls have been accepted by the user. Camera-tilt and gripper finite tests worked. Integrated five-joint control exists on robotino/feature/arm-control at d5b0eb2cb8d4e059ed1b61d5110a6f30339ee465 and is not in the inspected main. Preserve that progress, read ARM_CONTROL.md and SERVO_PROBING.md, and distinguish software tests from physical observations. I am a beginner: explain useful batches of steps and label PC versus Pi commands. My new feedback is: [add feedback here]. Do not move hardware merely to inspect or load the project.
 
+## 19. Update 31 October 2026: controller, video and guided setup (software only)
+
+The batteries prevented physical tests, so this session built the remaining
+software. **Nothing below has run on the robot yet.** Branch
+`robotino/feature/ps4-video-setup`, built on `robotino/feature/arm-control`.
+
+Decisions taken with the user:
+
+- PS4 controller read by the **PC browser** (Gamepad API, USB recommended),
+  feeding the existing session; **no shoulder-button deadman** for the
+  controller (a released stick is stop; unplugging or leaving the window stops).
+- STOP, timeout and lost link **freeze the arm and release it after 10 s**,
+  instead of releasing at once. Explicit Release still releases immediately.
+- The guided limit search may go **past the archived limits**, slowly
+  (30 ticks/s, capped at 40 by the Pi), pausing at each archived limit for
+  confirmation, never beyond the absolute 100–520.
+
+What was added (details in README.md, ARM_CONTROL.md and FIRST_RUN.md):
+
+| Area | Summary |
+| --- | --- |
+| Controller | △ DRIVE/ARM, proportional stick driving and multi-joint ARM mode, ○ STOP, Options connect, L1/R1 precision |
+| Tracks | Analog commands with the accepted polarity; optional measured minimum duty and trim per track. GPIO map and polarity unchanged |
+| Arm | Freeze/release policy; start estimates from measured rest poses and remembered positions; known joints powered one by one; calibration mode for slow tests |
+| Calibration | `~/.config/robotino/calibration.json` (channels, directions, limits, rest, track duty/trim, camera rotation), outside the code folder |
+| Video | `rpicam-vid` MJPEG on demand through the same tunnel; test card on a PC |
+| Health | Under-voltage, throttling, temperature, CPU in the page; CSV log every 10 s in real-hardware runs |
+| Setup & tests | 15 guided steps that move one thing at a time, ask what the user saw, save calibration, and produce a Markdown report |
+| Deployment | `tools/deploy.ps1`: release folders, LF line endings, docs excluded, nothing deleted |
+
+Validation at this stage: 107 Python and 36 Node.js hardware-free tests pass;
+all Python parses as 3.11; the page and every setup step were clicked through
+in headless Firefox against the simulation without JavaScript errors.
+Firefox cannot vibrate the controller (Chrome can); this is only feedback.
+Not yet verified: anything physical, Gamepad mapping with the actual
+controller, `rpicam-vid` on this Pi and camera, and `deploy.ps1` against the
+real Pi.
+
 ---
 
 **Scope of this handover:** comprehensive reconstruction of the relevant available evidence, not a claim to possess every past message or an unstated test result. When a new observation conflicts with this document, record the observation and the exact deployed revision before changing conclusions.
