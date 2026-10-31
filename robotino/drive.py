@@ -1,5 +1,7 @@
 """Track driver and expiring control sessions. No hardware is opened on import."""
 
+import logging
+import math
 import secrets
 import threading
 import time
@@ -110,10 +112,14 @@ class GPIOMotors:
             raise RuntimeError("GPIO shutdown failed; switch off robot power") from errors[0]
 
 
+def _ratio(value):
+    return type(value) in (int, float) and math.isfinite(value) and -1 <= value <= 1
+
+
 class Controller:
     """Single operator; each command needs a fresh, one-use server challenge."""
 
-    def __init__(self, motors, clock=time.monotonic, arm=None):
+    def __init__(self, motors, clock=time.monotonic, arm=None, tracks=None):
         self.motors = motors
         self.arm = arm
         self.clock = clock
@@ -123,6 +129,28 @@ class Controller:
         self.deadline = 0.0
         self.faulted = False
         self.motion = "stop"
+        self.last_expiry = None
+        self.set_track_calibration(tracks or {})
+
+    def set_track_calibration(self, tracks):
+        """Measured minimum moving duty and straight-line trim, per track [left, right]."""
+        self.min_duty = list(tracks.get("min_duty", [0.0, 0.0]))
+        self.trim = list(tracks.get("trim", [1.0, 1.0]))
+
+    def _duties(self, demand, speed, raw):
+        """Map -1..1 per track to signed duty; the sign keeps the accepted polarity."""
+        values = []
+        for value, low, trim in zip(demand, self.min_duty, self.trim):
+            if value == 0 or speed == 0:
+                values.append(0.0)
+                continue
+            if raw:  # Setup tests measure the motors themselves.
+                duty = abs(value) * speed
+            else:
+                low = min(low, speed)
+                duty = (low + abs(value) * (speed - low)) * trim
+            values.append(math.copysign(min(duty, MAX_SPEED), value))
+        return tuple(values)
 
     def _write(self, values):
         try:
@@ -147,11 +175,17 @@ class Controller:
             self._write((0, 0))
         finally:
             if self.arm is not None:
-                self.arm.release()
+                self.arm.freeze()  # Keeps holding; releases after arm.HOLD_AFTER_STOP.
 
     def _expire(self):
-        if self.session is not None and self.clock() >= self.deadline:
+        now = self.clock()
+        if self.session is not None and now >= self.deadline:
+            moving = self.motors.value != (0, 0)
+            after = now - (self.deadline - TIMEOUT)
             self._stop()
+            self.last_expiry = {"after": round(after, 3), "moving": moving, "at": time.time()}
+            logging.warning("Watchdog stop: no command for %.2f s%s", after,
+                            " while the tracks were powered" if moving else "")
 
     def _reply(self):
         self.challenge = secrets.token_urlsafe(24)
@@ -185,9 +219,15 @@ class Controller:
             motion = data.get("motion")
             deadman = data.get("deadman")
             speed = data.get("speed", DEFAULT_SPEED)
-            if not isinstance(motion, str) or motion not in MOTIONS or type(deadman) is not bool:
+            tracks, raw = data.get("tracks"), data.get("raw", False)
+            if (not isinstance(motion, str) or (motion not in MOTIONS and motion != "analog")
+                    or type(deadman) is not bool or type(raw) is not bool):
                 self._stop()
                 raise ControlError("Invalid control command")
+            if motion == "analog" and (not isinstance(tracks, list) or len(tracks) != 2
+                                       or not all(_ratio(v) for v in tracks)):
+                self._stop()
+                raise ControlError("Analog tracks must be [left, right] between -1 and 1")
             # The range check also rejects NaN and infinities without coercing input.
             if type(speed) not in (int, float) or not 0 <= speed <= MAX_SPEED:
                 self._stop()
@@ -204,9 +244,10 @@ class Controller:
                     self._close_outputs()
                     raise
             self.motion = motion if deadman else "stop"
-            if speed == 0:
-                self.motion = "stop"
-            self._write(tuple(v * speed for v in MOTIONS[self.motion]))
+            demand = tuple(tracks) if self.motion == "analog" else MOTIONS[self.motion]
+            if speed == 0 or demand == (0, 0):
+                self.motion, demand = "stop", (0, 0)
+            self._write(self._duties(demand, speed, raw))
             return self._reply()
 
     def disconnect(self, session):
@@ -214,10 +255,30 @@ class Controller:
             if self.session is not None and session == self.session:
                 self._stop()
 
+    def with_session(self, session, action):
+        """Run action(arm) under the lock, only for the connected operator."""
+        with self.lock:
+            self._expire()
+            if not self.session or session != self.session:
+                raise ControlError("Session expired; reconnect first")
+            return action(self.arm)
+
+    def status(self):
+        """Snapshot for the page's status poll; no session needed, changes nothing."""
+        with self.lock:
+            result = {"connected": self.session is not None, "faulted": self.faulted,
+                      "motion": self.motion, "left": self.motors.value[0], "right": self.motors.value[1],
+                      "last_expiry": self.last_expiry,
+                      "tracks": {"min_duty": self.min_duty, "trim": self.trim}}
+            if self.arm is not None:
+                result["arm"] = self.arm.status()
+            return result
+
     def watchdog(self):
         with self.lock:
             self._expire()
-            if self.arm is not None and self.session is not None and not self.faulted:
+            # Also runs without a session: a frozen arm must release on time.
+            if self.arm is not None and not self.faulted:
                 try:
                     self.arm.step()
                 except Exception:

@@ -143,6 +143,72 @@ class ControlTests(unittest.TestCase):
             self.command()
         self.assertEqual(self.motors.value, (0, 0))
 
+    def test_watchdog_records_how_long_it_waited_before_stopping(self):
+        self.command()
+        self.clock.now += TIMEOUT + 0.25
+        self.control.watchdog()
+        self.assertEqual(self.control.last_expiry["after"], TIMEOUT + 0.25)
+        self.assertTrue(self.control.last_expiry["moving"])
+        self.assertIsNotNone(self.control.status()["last_expiry"])
+
+
+class AnalogTrackTests(unittest.TestCase):
+    """Joystick driving: -1..1 per track, the same polarity as the keyboard motions."""
+
+    def setUp(self):
+        self.clock = Clock()
+        self.motors = SimulatedMotors()
+        self.control = Controller(self.motors, self.clock)
+        self.credentials = self.control.connect()
+
+    def drive(self, tracks, speed=1.0, deadman=True, **extra):
+        self.credentials = self.control.command({**self.credentials, "motion": "analog", "tracks": tracks,
+                                                 "deadman": deadman, "speed": speed, **extra})
+
+    def test_proportional_values_scale_with_the_speed_slider(self):
+        self.drive([0.5, -0.25], speed=0.8)
+        self.assertEqual(self.motors.value, (0.4, -0.2))
+        self.drive([1, 1], speed=0.8)
+        self.assertEqual(self.motors.value, (0.8, 0.8))
+        self.drive([0, 0])
+        self.assertEqual((self.motors.value, self.credentials["motion"]), ((0, 0), "stop"))
+
+    def test_full_stick_matches_the_accepted_keyboard_directions(self):
+        for motion, tracks in (("forward", [1, 1]), ("left", [-1, 1]), ("right", [1, -1])):
+            with self.subTest(motion=motion):
+                self.credentials = self.control.command(
+                    {**self.credentials, "motion": motion, "deadman": True, "speed": 0.5})
+                keyboard = self.motors.value
+                self.drive(tracks, speed=0.5)
+                self.assertEqual(self.motors.value, keyboard)
+
+    def test_without_deadman_or_with_bad_values_the_tracks_stop(self):
+        self.drive([1, 1], deadman=False)
+        self.assertEqual(self.motors.value, (0, 0))
+        for tracks in ([1.01, 0], [0, -2], [1], [1, 0, 0], "fast", [True, 0], [float("nan"), 0], None):
+            with self.subTest(tracks=tracks):
+                self.drive([0.5, 0.5])
+                with self.assertRaises(ControlError):
+                    self.drive(tracks)
+                self.assertEqual(self.motors.value, (0, 0))
+                self.credentials = self.control.connect()
+
+    def test_measured_minimum_duty_and_trim_shape_small_stick_movements(self):
+        self.control.set_track_calibration({"min_duty": [0.3, 0.4], "trim": [1.0, 0.9]})
+        self.drive([0.5, 0.5], speed=0.7)
+        left, right = self.motors.value
+        self.assertAlmostEqual(left, 0.3 + 0.5 * 0.4)
+        self.assertAlmostEqual(right, (0.4 + 0.5 * 0.3) * 0.9)
+        self.drive([0.01, 0], speed=0.2)  # Speed below the minimum: never above the slider.
+        self.assertAlmostEqual(self.motors.value[0], 0.2)
+
+    def test_raw_mode_for_setup_tests_ignores_calibration(self):
+        self.control.set_track_calibration({"min_duty": [0.3, 0.4], "trim": [1.0, 0.9]})
+        self.drive([1, 0], speed=0.25, raw=True)
+        self.assertEqual(self.motors.value, (0.25, 0))
+        with self.assertRaises(ControlError):
+            self.drive([1, 0], raw="yes")
+
 
 class FakeGPIO:
     BCM, OUT, LOW = "BCM", "OUT", 0
