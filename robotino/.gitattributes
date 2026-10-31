@@ -1,0 +1,5 @@
+# deploy.ps1 uses `git archive`: leave large reference documents off the Pi.
+docs/ export-ignore
+# Shell scripts run on the Pi; they must keep Linux line endings everywhere.
+*.sh text eol=lf
+*.jpg binary
