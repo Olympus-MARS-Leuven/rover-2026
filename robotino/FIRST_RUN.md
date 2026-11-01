@@ -55,13 +55,40 @@ It may ask for the Pi password up to three times. What it does:
 Calibration and reports live in `~/.config/robotino` on the Pi, so they
 survive every update.
 
-## 3. Check the Pi once
+## 3. Open the SSH terminal with port forwarding
 
-**PC**, open the SSH terminal with the tunnel:
+The robot app only listens on the Pi itself (address 127.0.0.1, port 8765), so
+nobody else on the Wi-Fi can drive it. Port forwarding (an "SSH tunnel") lets
+your PC reach it anyway: the browser on your PC talks to port 8765 on the PC,
+and SSH carries that traffic to port 8765 on the Pi.
+
+```
+PC browser → http://127.0.0.1:8765 → SSH tunnel → Pi port 8765 → robot app
+```
+
+**PC**, in a new PowerShell window (any folder):
 
 ```powershell
 ssh -L 8765:127.0.0.1:8765 -o ExitOnForwardFailure=yes robotino@robotino-pi.local
 ```
+
+- `-L 8765:127.0.0.1:8765` means: port 8765 on this PC goes to 127.0.0.1:8765
+  as seen from the Pi.
+- `-o ExitOnForwardFailure=yes` makes SSH stop with an error instead of
+  silently connecting without the tunnel.
+- Type the Pi password. The prompt changes to `robotino@robotino-pi:~ $`:
+  this window is now the **Pi terminal**, and the tunnel exists.
+
+**Keep this window open the whole session.** Closing it, or typing `exit`,
+removes the tunnel: the page stops working and the robot stops after about
+2 seconds. Run the robot app *inside this same window* (section 4).
+
+If SSH says `bind [127.0.0.1]:8765: Address already in use` or
+`Could not request local forwarding`, something on the PC already uses port
+8765. Usually that is the PC simulation from section 0 (press Ctrl+C in its
+window) or an older SSH tunnel window (type `exit` there). Then try again.
+
+Check the Pi once, in this window:
 
 **Pi**:
 
@@ -80,13 +107,18 @@ rpicam-hello --list-cameras
 
 ## 4. Start with real hardware
 
-**Pi**:
+**Pi**, in the same window as the tunnel (still inside `~/robotino`):
 
 ```bash
 python3 robotino_app.py --hardware --servos
 ```
 
-**PC**: open <http://127.0.0.1:8765> and press Ctrl+F5. Check the top bar:
+It prints a few lines ending with `Open http://127.0.0.1:8765 via SSH port
+forwarding`. The app keeps running in this window; Ctrl+C stops it.
+
+**PC**: open <http://127.0.0.1:8765> in Firefox or Chrome and press Ctrl+F5.
+If the page does not load, check that the SSH window is still open and the app
+is still running in it. Check the top bar:
 
 - **MOTORS ENABLED** and **REAL SERVOS**;
 - the version matches `VERSION`;
