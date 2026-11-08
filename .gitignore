@@ -1,6 +1,6 @@
 __pycache__/
-*.onnx
 .vscode
 .DS_Store
-.mov
-.mp4
+*.onnx
+*.mov
+*.mp4
