@@ -1,6 +1,8 @@
+#camera
 __pycache__/
 .vscode
 .DS_Store
 *.onnx
 *.mov
 *.mp4
+color_settings.json
