@@ -69,7 +69,7 @@ def main():
     if not cap.isOpened():
         raise SystemExit(f"Could not open source: {args.source}")
 
-    processor = FaceProcessor() if args.mode == "face" else ArucoProcessor(args.dict, focal=1140) # focal = (side_px + 50 )/9.75 , sidepx was 222.3 at 50cm distance, so 1140
+    processor = FaceProcessor() if args.mode == "face" else ArucoProcessor(args.dict, focal=1140) # focal = (side_px x 50 )/9.75 , sidepx was 222.3 at 50cm distance, so 1140
 
     # Video files play at their own frame rate, so they behave like a live feed
     fps_file = cap.get(cv2.CAP_PROP_FPS) if is_file else 0
