@@ -899,6 +899,27 @@ Not yet verified: anything physical, Gamepad mapping with the actual
 controller, `rpicam-vid` on this Pi and camera, and `deploy.ps1` against the
 real Pi.
 
+## 20. Update 13 November 2026: first hardware session with the new software
+
+**User observed** (summary; the downloaded report and the Pi's
+`~/.config/robotino/calibration.json` were not yet shared): the user deployed
+the branch, completed the Setup & tests calibration, and reported that all
+motors work and the camera feed is good. The servos are weak; the **lower arm
+sometimes struggles to lift back up against its own weight**.
+
+Analysis: no software setting changes servo force; the PWM (50 Hz, same tick
+range as the original program) only sets position. The shield schematic shows
+every servo header on the same GS2678-regulated 5 V rail as the Pi, so supply
+sag weakens all servos and appears as under-voltage in the page. Suggested in
+ARM_CONTROL.md ("Servo strength"): check under-voltage while lifting, limit
+the lower arm's reach, add a rubber band/spring assist, and consider a
+stronger servo or separate servo supply after checking the servo model.
+
+Added this session: an **Edit joint limits** editor in the arm panel (save
+limits at any time; saving cancels travel in progress), `Start Robotino.cmd` /
+`Shut down Robotino.cmd` with `tools/start.ps1`, and `QUICK_START.md` for
+first-time operators.
+
 ---
 
 **Scope of this handover:** comprehensive reconstruction of the relevant available evidence, not a claim to possess every past message or an unstated test result. When a new observation conflicts with this document, record the observation and the exact deployed revision before changing conclusions.

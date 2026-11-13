@@ -79,6 +79,11 @@
     input[type=number], textarea { font:inherit; background:#0b1218; color:#edf3f8; border:1px solid #587181; border-radius:8px; padding:8px; }
     input[type=number] { width:110px; } textarea { width:100%; min-height:70px; box-sizing:border-box; }
     label.check { display:flex; gap:10px; align-items:flex-start; margin:8px 0; }
+    details.limits { border-top:1px solid #344c5b; margin-top:14px; padding-top:12px; }
+    details.limits summary { cursor:pointer; font-weight:700; }
+    .limits-table input[type=number] { width:76px; padding:6px; }
+    .limits-table td { padding:8px 6px 8px 0; white-space:nowrap; }
+    button.small { padding:6px 10px; font-size:.85rem; }
   </style>
 </head>
 <body>
@@ -197,6 +202,10 @@
       <div class="speed-scale muted"><span id="scale-gripper-0">Open · Shift+O</span><span id="scale-gripper-1">Close · Shift+P</span></div>
     </div>
     <p class="muted">Percentages show commanded travel within the configured limits, followed by the commanded PWM ticks; they are not measured angles. Limits come from your setup tests, or from the original code until those are saved.</p>
+    <details class="limits">
+      <summary>Edit joint limits</summary>
+      <div id="limits-root"><p class="muted">Waiting for the robot's status…</p></div>
+    </details>
   </section>
   </div>
   </div>
@@ -211,5 +220,6 @@
 <script src="/setup_logic.js"></script>
 <script src="/controls.js"></script>
 <script src="/setup.js"></script>
+<script src="/limits.js"></script>
 </body>
 </html>

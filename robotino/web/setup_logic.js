@@ -45,6 +45,20 @@
   }
 
   // Curved left = the right track is faster: raise the left trim, or lower the right one.
+  // Limits typed in the arm panel: {ok, error} or {ok, warning} when wider than the archive.
+  function checkLimits(minimum, maximum, archived) {
+    const low = Number(minimum);
+    const high = Number(maximum);
+    if (!Number.isInteger(low) || !Number.isInteger(high)) return {ok: false, error: "Use whole numbers of ticks"};
+    if (low < GLOBAL[0] || high > GLOBAL[1]) return {ok: false, error: `Stay within ${GLOBAL[0]}–${GLOBAL[1]} ticks`};
+    if (high - low < MIN_SPAN) return {ok: false, error: `Maximum must be at least ${MIN_SPAN} ticks above minimum`};
+    if (archived && (low < archived[0] || high > archived[1])) {
+      return {ok: true, minimum: low, maximum: high,
+        warning: `Wider than the archived ${archived[0]}–${archived[1]}: test the new end slowly`};
+    }
+    return {ok: true, minimum: low, maximum: high};
+  }
+
   function trimAfter(trim, answer, step = 0.04) {
     let [left, right] = trim || [1, 1];
     if (answer === "left") {
@@ -187,5 +201,5 @@
   }
 
   root.RobotinoSetupLogic = {JOINTS, NAMES, PAIRS, GLOBAL, MARGIN, positiveLabel, channelMap, limitsFromEnds,
-    trimAfter, rampDuty, latency, jointCalibration, trackCalibration, report};
+    checkLimits, trimAfter, rampDuty, latency, jointCalibration, trackCalibration, report};
 })(globalThis);

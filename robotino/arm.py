@@ -129,7 +129,11 @@ class Arm:
             if "rest" in data:
                 self.rest[key] = data["rest"]
         if self.active:
-            return  # Powered joints keep their positions; only limits and labels change.
+            # Powered joints keep their positions; only limits and labels change.
+            # Cancel travel so an old target cannot carry a joint past a new limit.
+            self.targets = self.positions.copy()
+            self.jog.clear()
+            return
         if remembered is None:  # New calibration while running: keep what is known.
             remembered = {k: round(v) for k, v in self.positions.items()
                           if self.start_source[k] == "remembered"}

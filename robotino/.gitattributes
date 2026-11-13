@@ -1,5 +1,8 @@
 # deploy.ps1 uses `git archive`: leave large reference documents off the Pi.
 docs/ export-ignore
+*.cmd export-ignore
 # Shell scripts run on the Pi; they must keep Linux line endings everywhere.
 *.sh text eol=lf
+# Windows double-click files need Windows line endings.
+*.cmd text eol=crlf
 *.jpg binary

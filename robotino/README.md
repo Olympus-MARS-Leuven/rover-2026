@@ -15,7 +15,9 @@ One local web page (reached through an SSH tunnel) controls everything:
 - **Setup & tests**: a guided tab that moves one thing at a time, asks what you
   saw, saves the measured calibration on the Pi and produces a report.
 
-First session with real hardware: follow [FIRST_RUN.md](FIRST_RUN.md).
+**New to Robotino and just want to drive?** Follow [QUICK_START.md](QUICK_START.md):
+double-click `Start Robotino.cmd`, then drive with the controller.
+Setting up a robot for the first time (deploying, calibrating): [FIRST_RUN.md](FIRST_RUN.md).
 
 This is still a bench-test version. The hardware-free tests cannot establish
 physical directions, stopping distance, torque, power stability or Pi

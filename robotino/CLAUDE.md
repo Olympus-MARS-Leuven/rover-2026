@@ -51,7 +51,7 @@ Full history and evidence: `docs/HANDOVER.md` (long; read section 1, 14 and
 ## Tests (PC, no hardware), run from robotino/
 - python -m unittest discover -s tests -v
 - node --test tests/test_keyboard.cjs tests/test_gamepad.cjs tests/test_setup_logic.cjs
-- Expected on ps4-video-setup: 107 Python and 36 JS pass. arm-control: 60 and
+- Expected on ps4-video-setup: 108 Python and 37 JS pass. arm-control: 60 and
   16; main: 25 and 10.
 - Passing tests do not prove the robot is safe or reliable.
 
@@ -70,8 +70,10 @@ Full history and evidence: `docs/HANDOVER.md` (long; read section 1, 14 and
   --servos (real servos), both flags (everything real); --no-camera.
 
 ## Priorities (update this list after each session)
-1. User fixes the batteries, deploys and runs FIRST_RUN.md; get the report.
-2. Record the report's physical results in docs/HANDOVER.md (validation ledger).
-3. Fix whatever the report shows (channels, directions, limits, video, power).
-4. Event workflow: network, startup/shutdown routine, operator checklist.
-5. All-day power: use the health logs (~/.config/robotino/logs) to decide.
+1. Get the Setup & tests report and calibration.json; record them in
+   docs/HANDOVER.md (validation ledger). Physical status so far: section 20.
+2. Weak servos, lower arm worst: check under-voltage while lifting, servo
+   model; then mechanical assist or stronger servo (hardware, user decides).
+3. Event workflow: network, Start Robotino.cmd routine, operator checklist
+   (QUICK_START.md).
+4. All-day power: use the health logs (~/.config/robotino/logs) to decide.

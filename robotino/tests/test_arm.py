@@ -248,6 +248,24 @@ class StartEstimateTests(unittest.TestCase):
         self.assertEqual(self.driver.outputs[12], 280)
         self.assertEqual(self.driver.outputs[13], 410)
 
+    def test_new_limits_while_moving_stop_the_travel_without_a_jump(self):
+        arm = self.make()
+        arm.configure({"enabled": True, "targets": {"wrist": 100}})
+        for _ in range(5):
+            self.clock.now += 0.1
+            arm.step()
+        position = arm.positions["wrist"]
+        arm.apply_calibration({"wrist": {"minimum": 300, "maximum": 320}})
+        for _ in range(20):
+            self.clock.now += 0.1
+            arm.step()
+        self.assertEqual(arm.positions["wrist"], position)  # 350: outside, but no jump back.
+        arm.configure({"enabled": True, "targets": {"wrist": 100}})
+        for _ in range(20):
+            self.clock.now += 0.1
+            arm.step()
+        self.assertEqual(self.driver.outputs[14], 320)
+
     def test_channel_changes_require_a_released_arm_but_limits_do_not(self):
         arm = self.make()
         arm.configure({"enabled": True, "targets": {"gripper": 50}})

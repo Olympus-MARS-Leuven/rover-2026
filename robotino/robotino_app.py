@@ -28,6 +28,7 @@ STATIC = {
     "/gamepad.js": ("gamepad.js", "text/javascript; charset=utf-8"),
     "/setup.js": ("setup.js", "text/javascript; charset=utf-8"),
     "/setup_logic.js": ("setup_logic.js", "text/javascript; charset=utf-8"),
+    "/limits.js": ("limits.js", "text/javascript; charset=utf-8"),
 }
 BODY_LIMITS = {"/api/calibration": 4096, "/api/report": 65536}
 BOUNDARY = "robotinoframe"

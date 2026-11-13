@@ -109,6 +109,38 @@ The backend enforces the limits for every slider, key and stick command. A
 changed servo channel is only accepted while the arm is released. A missing or
 invalid calibration file means the archived values are used.
 
+**Changing limits at any time:** open **Edit joint limits** at the bottom of
+the arm panel (real servos, connected). For each joint it shows the current
+limits, the archived ones and where the joint is now. Move the joint to a safe
+end, press **Use current** next to Minimum or Maximum, then **Save**.
+**Archived** restores the original values. Limits wider than the archived range
+ask for confirmation. Saving stops any travel in progress, so nothing moves by
+itself; a joint left outside its new range stays put and can only be moved back
+towards it.
+
+## Servo strength
+
+The PWM signal sets a servo's *position*, not its force: no software setting
+makes a servo stronger, and this software uses the same 50 Hz signal and tick
+range as the original Adeept program. Force comes from the servo itself and
+its supply voltage.
+
+On the Motor Shield V2 every servo header is powered from the same regulated
+5 V rail as the Raspberry Pi (GS2678 step-down regulator, schematic in `docs/`).
+Several servos holding or moving at once, the camera and video encoding all
+draw from that rail. When it sags, every servo gets weaker, and the Pi reports
+**under-voltage** in the page's top bar. Practical order of improvements:
+
+1. Fresh, fully charged batteries; watch the top bar while lifting. Under-voltage
+   at that moment means the supply is the limit.
+2. Keep the lower arm's load and reach small: lift with the arm folded, and set
+   its limits so it never stretches further than needed.
+3. A rubber band or light spring that helps the lower arm up (gravity
+   compensation) is cheap and very effective for this joint.
+4. A stronger servo of the same size for the lower joint, or a separate 5–6 V
+   supply for the servos (hardware changes: check servo model, wiring and a
+   shared ground with the team first).
+
 The [finite test guide](SERVO_PROBING.md) and read-only
 `python3 servo_probe.py --channel 11 --inspect` remain available for diagnostics.
 Keep the physical power switch accessible: I2C failures, forced process

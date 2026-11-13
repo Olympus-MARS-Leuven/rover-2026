@@ -32,6 +32,17 @@ test('marked ends become limits with a margin, within the absolute bounds', () =
   assert.equal(S.limitsFromEnds(300, undefined), null);
 });
 
+test('limits typed in the arm panel are checked before saving', () => {
+  assert.deepEqual(S.checkLimits('290', '420', [300, 430]),
+    {ok: true, minimum: 290, maximum: 420, warning: 'Wider than the archived 300–430: test the new end slowly'});
+  assert.deepEqual(S.checkLimits(310, 420, [300, 430]), {ok: true, minimum: 310, maximum: 420});
+  assert.equal(S.checkLimits(99, 300).ok, false);
+  assert.equal(S.checkLimits(300, 521).ok, false);
+  assert.equal(S.checkLimits(300, 305).ok, false);
+  assert.equal(S.checkLimits('300.5', 400).ok, false);
+  assert.equal(S.checkLimits('', 400).ok, false);
+});
+
 test('trim lowers the faster track and never exceeds full power', () => {
   assert.deepEqual(S.trimAfter([1, 1], 'left'), [1, 0.96]);
   assert.deepEqual(S.trimAfter([1, 0.96], 'right'), [1, 1]);

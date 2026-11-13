@@ -68,7 +68,7 @@ class SimulationHTTPTests(HTTPTests):
         self.assertIn("about 2 seconds", body)
         for placeholder in ("__DEFAULT_SPEED__", "__MAX_SPEED__", "__TIMEOUT__", "__VERSION__"):
             self.assertNotIn(placeholder, body)
-        for asset in ("/controls.js", "/gamepad.js", "/setup.js", "/setup_logic.js"):
+        for asset in ("/controls.js", "/gamepad.js", "/setup.js", "/setup_logic.js", "/limits.js"):
             self.assertEqual(self.request("GET", asset)[0], 200, asset)
         self.assertEqual(self.request("GET", "/../drive.py")[0], 404)
         self.assertEqual(self.request("GET", "/test-card.jpg")[0], 404)
