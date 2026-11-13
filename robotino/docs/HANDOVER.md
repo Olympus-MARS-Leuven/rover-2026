@@ -920,6 +920,12 @@ limits at any time; saving cancels travel in progress), `Start Robotino.cmd` /
 `Shut down Robotino.cmd` with `tools/start.ps1`, and `QUICK_START.md` for
 first-time operators.
 
+Follow-up the same day: the user attributed the lower arm's trouble to the slow
+movement. Lower and upper arm now move 3x faster (300 ticks/s at 100%, up to
+600 at 200%), and ARM-mode sticks respond linearly instead of squared; slow
+creeping commands let a loaded servo stall. Calibration moves stay capped at
+40 ticks/s. **Not yet tested on the robot.**
+
 ---
 
 **Scope of this handover:** comprehensive reconstruction of the relevant available evidence, not a claim to possess every past message or an unstated test result. When a new observation conflicts with this document, record the observation and the exact deployed revision before changing conclusions.

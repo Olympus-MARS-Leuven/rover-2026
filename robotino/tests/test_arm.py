@@ -74,12 +74,23 @@ class ArmTests(unittest.TestCase):
         self.assertEqual(self.arm.positions["camera"], 201)
 
     def test_stick_jogs_are_proportional_and_several_joints_can_move_together(self):
-        self.command(jog={"lower": 0.5, "wrist": -0.25, "upper": 1.0}, deadman=True)
+        self.command(jog={"lower": 0.5, "wrist": 0.25, "upper": 1.0}, deadman=True)
         self.advance(0.1)
-        self.assertAlmostEqual(self.arm.positions["lower"], 305)
-        self.assertAlmostEqual(self.arm.positions["wrist"], 300)  # Already at its minimum.
-        self.assertAlmostEqual(self.arm.positions["upper"], 310)
+        self.assertAlmostEqual(self.arm.positions["lower"], 315)   # Arm joints: 3x rate.
+        self.assertAlmostEqual(self.arm.positions["wrist"], 302.5)
+        self.assertAlmostEqual(self.arm.positions["upper"], 330)
         self.assertEqual(set(self.driver.outputs), {12, 13, 14})
+
+    def test_lower_and_upper_arm_move_three_times_faster_except_in_calibration(self):
+        self.command(targets={"lower": 100, "camera": 0}, speed=100)
+        self.advance(0.1)
+        self.assertAlmostEqual(self.arm.positions["lower"], 330)
+        self.assertAlmostEqual(self.arm.positions["camera"], 290)
+        self.arm.release()
+        self.command(calibrate=True, ticks={"upper": 300})
+        self.command(calibrate=True, ticks={"upper": 350})
+        self.advance(0.1)
+        self.assertAlmostEqual(self.arm.positions["upper"], 300 + CALIBRATION_SPEED * 0.1)
 
     def test_hold_cancels_slider_travel_without_releasing_torque(self):
         self.command(targets={"lower": 100})
@@ -185,7 +196,7 @@ class CalibrationModeTests(unittest.TestCase):
         self.assertEqual(self.arm.positions["lower"], 250)
         self.arm.configure({"enabled": True, "jog": {"lower": 1}, "deadman": True})
         self.advance(0.1)
-        self.assertAlmostEqual(self.arm.positions["lower"], 260)
+        self.assertAlmostEqual(self.arm.positions["lower"], 280)  # Normal arm rate: 300 ticks/s.
 
 
 class StartEstimateTests(unittest.TestCase):

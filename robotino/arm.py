@@ -16,16 +16,20 @@ class Joint:
     # Joints that sag to the same resting pose when their signal is removed.
     gravity: bool = False
     initial: int = 300
+    # Movement rate relative to the speed setting (100% = 100 ticks/s).
+    rate: float = 1.0
 
 
 # Channels: backup webServer.py; limits: backup config.txt. These are initial
 # software limits, not independently measured mechanical endpoints.
 # Gripper tightened to 330 following the user's fully-closed test at that value.
 # Measured values from calibration.json replace them (see calibration.py).
+# The arm joints move 3x faster: a slowly moving command lets a loaded servo
+# lag and stall against gravity (user report, 2026-11-13).
 JOINTS = {
     "camera": Joint("Camera tilt", 11, 201, 300),
-    "lower": Joint("Lower arm", 12, 300, 430, gravity=True),
-    "upper": Joint("Upper arm", 13, 139, 443, gravity=True),
+    "lower": Joint("Lower arm", 12, 300, 430, gravity=True, rate=3.0),
+    "upper": Joint("Upper arm", 13, 139, 443, gravity=True, rate=3.0),
     "wrist": Joint("Wrist rotation", 14, 300, 500),
     "gripper": Joint("Gripper", 15, 300, 330),
 }
@@ -251,8 +255,10 @@ class Arm:
         for key in tuple(self.active):
             low, high = self._bounds(key)
             position = self.positions[key]
+            # Calibration keeps every joint at the same slow, capped rate.
+            rate = self.speed * (1.0 if self.calibrating else JOINTS[key].rate)
             if key in self.jog:
-                value = position + self.jog[key] * self.speed * dt
+                value = position + self.jog[key] * rate * dt
                 # Never jump: a start outside the limits may only move back towards them.
                 self.positions[key] = min(max(high, position), max(min(low, position), value))
                 self.targets[key] = self.positions[key]
@@ -260,7 +266,7 @@ class Arm:
                 # Targets are validated when set: sliders within limits, ticks
                 # and rest poses within the absolute bounds.
                 delta = self.targets[key] - position
-                distance = min(abs(delta), self.speed * dt)
+                distance = min(abs(delta), rate * dt)
                 self.positions[key] += distance if delta > 0 else -distance
             self._write(key)
 

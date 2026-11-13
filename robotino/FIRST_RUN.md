@@ -100,7 +100,7 @@ rpicam-hello --list-cameras
 ```
 
 - `VERSION` shows the commit you deployed.
-- All tests should pass (108 at the time of writing).
+- All tests should pass (109 at the time of writing).
 - If `rpicam-hello` is missing: `sudo apt install -y rpicam-apps-lite`. If no
   camera is listed, power off and check the ribbon cable. Video is optional:
   the robot works without it.

@@ -51,6 +51,12 @@ test('ARM mode: sticks, triggers and D-pad move the right joints in the labelled
   assert.deepEqual(G.command(snap({values: {l2: 1, r2: 1}}), 'arm').jog, {}, 'both triggers cancel');
 });
 
+test('ARM mode responds in proportion to the stick; DRIVE stays gentle near the centre', () => {
+  const half = -(0.15 + 0.85 * 0.5);
+  assert.deepEqual(G.command(snap({axes: [0, half, 0, 0]}), 'arm').jog, {lower: 0.5});
+  assert.deepEqual(G.command(snap({axes: [0, half, 0, 0]}), 'drive').tracks, [0.25, 0.25]);
+});
+
 test('measured directions flip the stick signs', () => {
   const labels = {...G.DEFAULT_LABELS, lower: ['up', 'down']};
   assert.deepEqual(G.command(snap({axes: [0, -1, 0, 0]}), 'arm', labels).jog, {lower: -1});

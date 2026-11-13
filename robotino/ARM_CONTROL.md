@@ -62,9 +62,17 @@ Keys and sticks name a physical direction (up, left, close…). Which tick
 direction that is comes from the measured calibration (Setup & tests step 3),
 so the controls stay correct even if a servo is mounted the other way round.
 
-**Movement speed** covers 25–200% of the normal rate of 100 PWM ticks per
-second (D-pad ←/→ in ARM mode). It is the rate of position commands, not servo
-torque. Updates run about every 20 ms.
+**Movement speed** covers 25–200% of the normal rate (D-pad ←/→ in ARM mode).
+At 100% the camera, wrist and gripper move 100 PWM ticks per second, and the
+**lower and upper arm 300 ticks per second**. The arm joints are faster because
+a slowly moving command lets a loaded servo lag and stall against gravity: a
+quicker command makes it push harder sooner. In ARM mode the sticks respond in
+proportion (half a push = half speed). Setup & tests calibration moves stay slow
+(at most 40 ticks per second) for every joint. This is the rate of position
+commands, not servo torque. Updates run about every 20 ms.
+
+The arm-joint factor is `rate=3.0` in `JOINTS` in `arm.py`; change it there
+and redeploy if the arm should move faster or slower.
 
 ## Hold, park, freeze and release
 

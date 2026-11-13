@@ -51,7 +51,7 @@ Full history and evidence: `docs/HANDOVER.md` (long; read section 1, 14 and
 ## Tests (PC, no hardware), run from robotino/
 - python -m unittest discover -s tests -v
 - node --test tests/test_keyboard.cjs tests/test_gamepad.cjs tests/test_setup_logic.cjs
-- Expected on ps4-video-setup: 108 Python and 37 JS pass. arm-control: 60 and
+- Expected on ps4-video-setup: 109 Python and 38 JS pass. arm-control: 60 and
   16; main: 25 and 10.
 - Passing tests do not prove the robot is safe or reliable.
 

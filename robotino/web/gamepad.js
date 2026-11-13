@@ -41,11 +41,13 @@
     return Object.keys(BUTTONS).filter(name => current.pressed[name] && !(previous && previous.pressed[name]));
   }
 
-  // Radial dead zone, rescaled, squared for fine control near the centre. Returns [x, y] with up positive.
-  function stick(x, y) {
+  // Radial dead zone, rescaled. Returns [x, y] with up positive. Driving squares the
+  // response for fine control near the centre; the arm uses it straight (curve 1),
+  // because a joint creeping too slowly under load can stall against gravity.
+  function stick(x, y, curve = 2) {
     const magnitude = Math.hypot(x, y);
     if (magnitude < DEADZONE) return [0, 0];
-    const curved = Math.min(1, (magnitude - DEADZONE) / (1 - DEADZONE)) ** 2;
+    const curved = Math.min(1, (magnitude - DEADZONE) / (1 - DEADZONE)) ** curve;
     return [x / magnitude * curved, -y / magnitude * curved];
   }
 
@@ -76,8 +78,9 @@
       if (value) result.jog[joint] = value;
     };
     if (snap.pressed.up !== snap.pressed.down) add("camera", snap.pressed.up ? "up" : "down", CAMERA_RATE);
-    const [lx, ly] = stick(snap.axes[0], snap.axes[1]);
-    const [rx, ry] = stick(snap.axes[2], snap.axes[3]);
+    const curve = mode === "arm" ? 1 : 2;
+    const [lx, ly] = stick(snap.axes[0], snap.axes[1], curve);
+    const [rx, ry] = stick(snap.axes[2], snap.axes[3], curve);
     if (mode === "arm") {
       add("lower", "up", ly);
       add("upper", "up", ry);
