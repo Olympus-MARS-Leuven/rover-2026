@@ -7,8 +7,8 @@ only the normal run. The robot is already set up and calibrated; leave the
 ## What you need
 
 - Robotino with **charged batteries**
-- A Windows PC on the **same Wi-Fi as the robot** (ask the team which network)
-- This repository on the PC (the `rover-2026` folder)
+- A Windows PC or Mac on the **same Wi-Fi as the robot** (ask the team which network)
+- This repository on the computer (the `rover-2026` folder)
 - The PS4 controller and its **USB cable**
 - The robot's password (ask the team)
 
@@ -20,16 +20,20 @@ only the normal run. The robot is already set up and calibrated; leave the
 
 ## 2. Start the control page
 
-1. On the PC, open the `rover-2026\robotino` folder in File Explorer.
-2. Double-click **`Start Robotino.cmd`**.
-3. A black window opens. Type the robot's password and press Enter.
+1. On Windows, open the `rover-2026\robotino` folder in File Explorer and
+   double-click **`Start Robotino.cmd`**.
+   On Mac, open the `robotino` folder in Finder and double-click
+   **`Start Robotino.command`**. If macOS asks you to confirm opening it, choose
+   **Open**.
+2. A terminal window opens. Type the robot's password and press Enter.
    Nothing appears while you type; that is normal.
-4. Wait a few seconds: the **control page opens in your browser** by itself.
+3. Wait a few seconds: the **control page opens in your browser** by itself.
 
-**Keep the black window open** while you drive. Closing it stops the robot.
+**This starts real tracks and servos on the Pi. Keep the terminal window open**
+while you drive; closing it stops the robot app.
 
-The first time, Windows may ask "Are you sure you want to continue connecting
-(yes/no)?". Type `yes` and press Enter.
+The first SSH connection may ask whether to trust the robot's identity. Check
+with the team if you are unsure; otherwise type `yes` if asked.
 
 ## 3. Check the page
 
@@ -43,7 +47,7 @@ At the top of the page you should see:
 
 ## 4. Connect the controller
 
-1. Plug the PS4 controller into the PC with the USB cable.
+1. Plug the PS4 controller into the computer with the USB cable.
 2. Press any button on it. The controller box on the page shows **Connected:**
    followed by the controller's name.
 3. Press **Options** on the controller (or click **Connect controls**).
@@ -84,9 +88,10 @@ the small servos, and the lower arm struggles most when stretched far out.
 ## 7. Stop and switch off
 
 1. Press **○** on the controller.
-2. Click in the black window and press **Ctrl+C**. Then press Enter to close it.
-3. Double-click **`Shut down Robotino.cmd`** and type the password (sometimes
-   twice). This switches the Raspberry Pi off safely.
+2. Click in the terminal window and press **Ctrl+C**. Then press Enter to close it.
+3. On Windows, double-click **`Shut down Robotino.cmd`**. On Mac, double-click
+   **`Shut down Robotino.command`**. Type the password (sometimes twice). This
+   switches the Raspberry Pi off safely.
 4. Wait **20 seconds**, then switch the robot off with the power switch.
 
 Never switch the power off while the Pi is still running, unless it is an
@@ -102,9 +107,9 @@ keeps holding for 10 seconds, then goes limp.
 
 | Problem | What to do |
 | --- | --- |
-| Black window: "Could not resolve hostname" | The robot is off, still starting (wait one more minute), or the PC is on another Wi-Fi |
-| Black window: "Permission denied" | Wrong password; try again |
-| Black window: "Address already in use" | Another Robotino window is open: close it, then try again |
+| Terminal: "Could not resolve hostname" | The robot is off, still starting (wait one more minute), or the computer is on another Wi-Fi |
+| Terminal: "Permission denied" | Wrong password; try again |
+| Terminal: "Address already in use" | Another Robotino window is open: close it, then try again |
 | The page does not open | Open <http://127.0.0.1:8765> in the browser yourself |
 | Page says "Disconnected" | Press Options on the controller or click **Connect controls** |
 | Controller not shown | Press any button on it; try another USB port |
