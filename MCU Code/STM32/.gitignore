@@ -1,0 +1,4 @@
+# CubeIDE workspace and build output must never be committed
+.metadata/
+**/Debug/
+**/Release/
