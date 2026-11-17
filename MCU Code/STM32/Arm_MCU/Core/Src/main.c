@@ -32,7 +32,8 @@
 #include <rmw_microxrcedds_c/config.h>
 #include <rmw_microros/rmw_microros.h>
 #include <std_msgs/msg/int32.h>
-
+#include <std_msgs/msg/int16_multi_array.h>
+#include "servo.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,6 +53,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
+TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
@@ -73,6 +76,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM8_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -115,8 +119,11 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
-
+  /* USER CODE BEGIN 2 */
+  Servo_Init();   /* all 4 servos to centre, PWM running */
+  /* USER CODE END 2 */
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -221,6 +228,94 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 83;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 19999;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 1500;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.Pulse = 0;
+  if (HAL_TIM_PWM_ConfigChannel(&htim8, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim8, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+  HAL_TIM_MspPostInit(&htim8);
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -312,7 +407,19 @@ static void error_loop(void)
   for (;;) { HAL_GPIO_TogglePin(LED2_GPIO_PORT, LED2_PIN); osDelay(100); }
 }
 #define RCCHECK(fn) { rcl_ret_t rc_ = (fn); if (rc_ != RCL_RET_OK) { error_loop(); } }
+/* Called by the micro-ROS executor each time a message arrives on /arm/servo_cmd.
+   data[0] = servo 1 ... data[3] = servo 4, in degrees.
+   If fewer than 4 numbers are sent, only those servos move. */
+static void servo_cmd_callback(const void * msgin)
+{
+  const std_msgs__msg__Int16MultiArray * cmd =
+      (const std_msgs__msg__Int16MultiArray *) msgin;
 
+  for (size_t i = 0; i < cmd->data.size && i < SERVO_COUNT; i++)
+  {
+    Servo_SetAngle((uint8_t) i, cmd->data.data[i]);
+  }
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -325,47 +432,87 @@ static void error_loop(void)
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-	rmw_uros_set_custom_transport(true, (void *) &huart2,
+	  /* USER CODE BEGIN 5 */
+
+	  /* 1. Tell micro-ROS to use USART2 (USB cable to the Pi) */
+	  rmw_uros_set_custom_transport(true, (void *) &huart2,
 	      cubemx_transport_open, cubemx_transport_close,
 	      cubemx_transport_write, cubemx_transport_read);
 
+	  /* 2. Tell micro-ROS to use FreeRTOS memory functions */
 	  rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
-	  freeRTOS_allocator.allocate = microros_allocate;
-	  freeRTOS_allocator.deallocate = microros_deallocate;
-	  freeRTOS_allocator.reallocate = microros_reallocate;
+	  freeRTOS_allocator.allocate      = microros_allocate;
+	  freeRTOS_allocator.deallocate    = microros_deallocate;
+	  freeRTOS_allocator.reallocate    = microros_reallocate;
 	  freeRTOS_allocator.zero_allocate = microros_zero_allocate;
 	  if (!rcutils_set_default_allocator(&freeRTOS_allocator)) { error_loop(); }
 
-	  /* LD2 on = waiting for the Agent on the Pi */
+	  /* 3. LD2 ON = waiting for the Agent on the Pi */
 	  HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_SET);
 	  while (rmw_uros_ping_agent(100, 1) != RMW_RET_OK) { osDelay(500); }
 	  HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_RESET);
 
+	  /* 4. Variables */
 	  rcl_allocator_t allocator = rcl_get_default_allocator();
 	  rclc_support_t support;
 	  rcl_node_t node;
-	  rcl_publisher_t publisher;
-	  std_msgs__msg__Int32 msg;
+	  rcl_publisher_t heartbeat_pub;
+	  std_msgs__msg__Int32 heartbeat_msg;
+	  rcl_subscription_t servo_sub;
+	  static std_msgs__msg__Int16MultiArray servo_msg;  /* incoming command   */
+	  static int16_t servo_buffer[8];                   /* room for 8 numbers */
+	  rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
 
+	  /* 5. Start micro-ROS on ROS domain 42, create the node */
 	  rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
-	    RCCHECK(rcl_init_options_init(&init_options, allocator));
-	    RCCHECK(rcl_init_options_set_domain_id(&init_options, 42));
-	    RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
-	    RCCHECK(rclc_node_init_default(&node, "olympus_mcu", "", &support));
-	  RCCHECK(rclc_publisher_init_default(&publisher, &node,
-	          ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/mcu/heartbeat"));
+	  RCCHECK(rcl_init_options_init(&init_options, allocator));
+	  RCCHECK(rcl_init_options_set_domain_id(&init_options, 42));
+	  RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options,
+	&allocator));
+	  RCCHECK(rclc_node_init_default(&node, "arm_mcu", "", &support));
 
-	  msg.data = 0;
+	  /* 6. Heartbeat publisher */
+	  RCCHECK(rclc_publisher_init_default(&heartbeat_pub, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32), "/arm/heartbeat"));
+	  /* 7. Servo command subscriber.
+	        An array message needs memory reserved in advance on a microcontroller:
+	        we point it to servo_buffer (max 8 numbers). */
+	  servo_msg.data.data         = servo_buffer;
+	  servo_msg.data.capacity     = 8;
+	  servo_msg.data.size         = 0;
+	  servo_msg.layout.dim.data     = NULL;  /* we do not use the layout part */
+	  servo_msg.layout.dim.capacity = 0;
+	  servo_msg.layout.dim.size     = 0;
+	  servo_msg.layout.data_offset  = 0;
+	  RCCHECK(rclc_subscription_init_default(&servo_sub, &node,
+	      ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int16MultiArray),
+	"/arm/servo_cmd"));
+
+	  /* 8. Executor: checks for incoming messages and calls servo_cmd_callback.
+	        1 = number of things it handles (1 subscriber). */
+	  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+	  RCCHECK(rclc_executor_add_subscription(&executor, &servo_sub, &servo_msg,
+	      &servo_cmd_callback, ON_NEW_DATA));
+
+	  /* 9. Main loop: handle commands every 10 ms, send heartbeat every 1000 ms */
+	  heartbeat_msg.data = 0;
+	  uint32_t last_heartbeat = osKernelGetTickCount();   /* 1 tick = 1 ms */
 	  for (;;)
 	  {
-	    /* LD2 toggles once per second = heartbeat sent */
-	    if (rcl_publish(&publisher, &msg, NULL) == RCL_RET_OK) {
-	      HAL_GPIO_TogglePin(LED2_GPIO_PORT, LED2_PIN);
+	    rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+
+	    if (osKernelGetTickCount() - last_heartbeat >= 1000)
+	    {
+	      last_heartbeat += 1000;
+	      if (rcl_publish(&heartbeat_pub, &heartbeat_msg, NULL) == RCL_RET_OK)
+	      {
+	        HAL_GPIO_TogglePin(LED2_GPIO_PORT, LED2_PIN);  /* LD2 blinks = alive */
+	      }
+	      heartbeat_msg.data++;
 	    }
-	    msg.data++;
-	    osDelay(1000);
+	    osDelay(10);
 	  }
+	  /* USER CODE END 5 */
   /* USER CODE END 5 */
 }
 
